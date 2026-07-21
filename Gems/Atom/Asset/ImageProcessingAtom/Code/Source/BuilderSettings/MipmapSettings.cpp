@@ -6,9 +6,9 @@
  *
  */
 
-#include <BuilderSettings/MipmapSettings.h>
 #include <AzCore/Serialization/EditContext.h>
 #include <AzCore/Serialization/SerializeContext.h>
+#include <BuilderSettings/MipmapSettings.h>
 
 namespace ImageProcessingAtom
 {
@@ -27,9 +27,7 @@ namespace ImageProcessingAtom
         AZ::SerializeContext* serialize = azrtti_cast<AZ::SerializeContext*>(context);
         if (serialize)
         {
-            serialize->Class<MipmapSettings>()
-                ->Version(1)
-                ->Field("MipGenType", &MipmapSettings::m_type);
+            serialize->Class<MipmapSettings>()->Version(1)->Field("MipGenType", &MipmapSettings::m_type);
 
             AZ::EditContext* editContext = serialize->GetEditContext();
             if (editContext)
@@ -43,8 +41,8 @@ namespace ImageProcessingAtom
                     ->EnumAttribute(MipGenType::gaussian, "Gaussian")
                     ->EnumAttribute(MipGenType::blackmanHarris, "BlackmanHarris")
                     ->EnumAttribute(MipGenType::kaiserSinc, "KaiserSinc")
-                    ->Attribute(AZ::Edit::Attributes::Min, 0)
-                ;
+                    ->EnumAttribute(MipGenType::alphaWeighted, "AlphaWeighted")
+                    ->Attribute(AZ::Edit::Attributes::Min, 0);
             }
         }
     }

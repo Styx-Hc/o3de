@@ -6,25 +6,23 @@
  *
  */
 
-
+#include <Atom/ImageProcessing/ImageObject.h>
 #include <AzCore/Memory/OSAllocator.h>
 #include <AzCore/base.h>
-#include <Atom/ImageProcessing/ImageObject.h>
 #include <Processing/ImageConvert.h>
 #include <Processing/ImageToProcess.h>
 
-#include <Converters/FIR-Windows.h>
 #include <Converters/FIR-Weights.h>
+#include <Converters/FIR-Windows.h>
 
 /* ####################################################################################################################
  */
-#define mallocAligned(sze)  _aligned_malloc(sze, 16)
-#define freeAligned(ptr)      _aligned_free(ptr)
+#define mallocAligned(sze) _aligned_malloc(sze, 16)
+#define freeAligned(ptr) _aligned_free(ptr)
 
 AZ_PUSH_DISABLE_WARNING_CLANG("-Wunused-value")
 AZ_PUSH_DISABLE_WARNING_CLANG("-Wtautological-compare")
 AZ_PUSH_DISABLE_WARNING_GCC("-Wunused-value")
-
 
 /* ####################################################################################################################
  */
@@ -37,8 +35,14 @@ namespace ImageProcessingAtom
         /* ==================================================================================================================
          * Rect2D = ???
          */
-        Rect2D()                         { }
-        Rect2D(const int x, const int y) { visual[0] = x; visual[1] = y; }
+        Rect2D()
+        {
+        }
+        Rect2D(const int x, const int y)
+        {
+            visual[0] = x;
+            visual[1] = y;
+        }
 
     private:
         int visual[2];
@@ -48,19 +52,30 @@ namespace ImageProcessingAtom
          * Access operators
          * M(i, j) == [row i][col j]
          */
-        inline        int&    operator ()  (int i)       { return visual[i]; }
-        inline        int     operator ()  (int i) const { return visual[i]; }
+        inline int& operator()(int i)
+        {
+            return visual[i];
+        }
+        inline int operator()(int i) const
+        {
+            return visual[i];
+        }
 
-        inline        int&    operator []  (int i)       { return visual[i]; }
-        inline        int     operator []  (int i) const { return visual[i]; }
+        inline int& operator[](int i)
+        {
+            return visual[i];
+        }
+        inline int operator[](int i) const
+        {
+            return visual[i];
+        }
 
         /* ==================================================================================================================
          * Logical operators
          */
-        inline        bool    operator ==  (const Rect2D& tht)
+        inline bool operator==(const Rect2D& tht)
         {
-            return (visual[0] == tht.visual[0]) &&
-                   (visual[1] == tht.visual[1]);
+            return (visual[0] == tht.visual[0]) && (visual[1] == tht.visual[1]);
         }
     };
 
@@ -73,36 +88,73 @@ namespace ImageProcessingAtom
         /* ==================================================================================================================
          * Plane2D = ???
          */
-        Plane2D(const int x, const int y, const int p) { planes = p; allocatedC[0] = x; allocatedC[1] = y; used = allocatedC; aligned[0] = (allocatedC[0] + 15) & (~15); aligned[1] = allocatedC[1]; allocate(); }
-        Plane2D(const Rect2D& i, const int p) { planes = p; allocatedC                       = i; used = allocatedC; aligned[0] = (allocatedC[0] + 15) & (~15); aligned[1] = allocatedC[1]; allocate(); }
+        Plane2D(const int x, const int y, const int p)
+        {
+            planes = p;
+            allocatedC[0] = x;
+            allocatedC[1] = y;
+            used = allocatedC;
+            aligned[0] = (allocatedC[0] + 15) & (~15);
+            aligned[1] = allocatedC[1];
+            allocate();
+        }
+        Plane2D(const Rect2D& i, const int p)
+        {
+            planes = p;
+            allocatedC = i;
+            used = allocatedC;
+            aligned[0] = (allocatedC[0] + 15) & (~15);
+            aligned[1] = allocatedC[1];
+            allocate();
+        }
 
-        ~Plane2D() { deallocate(); }
+        ~Plane2D()
+        {
+            deallocate();
+        }
 
         /* ==================================================================================================================
-           * ??? = Plane2D
+         * ??? = Plane2D
          */
-        inline operator       Rect2D() const { return used; }
-        inline operator       int() const { return planes; }
+        inline operator Rect2D() const
+        {
+            return used;
+        }
+        inline operator int() const
+        {
+            return planes;
+        }
 
-        inline operator       DataType*   () const { return buffers; }
-        inline operator       DataType*** () const { return rows; }
-        inline operator const DataType*   () const { return (const DataType*)buffers; }
-        inline operator const DataType*** () const { return (const DataType***)rows; }
+        inline operator DataType*() const
+        {
+            return buffers;
+        }
+        inline operator DataType***() const
+        {
+            return rows;
+        }
+        inline operator const DataType*() const
+        {
+            return (const DataType*)buffers;
+        }
+        inline operator const DataType***() const
+        {
+            return (const DataType***)rows;
+        }
 
     public:
         inline void locate(Rect2D take)
         {
             taken = take;
 
-            if ((taken[0] >     aligned[0]) ||
-                (taken[1] > abs(aligned[1])))
+            if ((taken[0] > aligned[0]) || (taken[1] > abs(aligned[1])))
             {
                 abort();
             }
 
             /* align column#length */
             used[0] = (taken[0] + 15) & (~15);
-            used[1] =  taken[1];
+            used[1] = taken[1];
 
             for (int p = 0; p < planes; p++)
             {
@@ -118,7 +170,6 @@ namespace ImageProcessingAtom
                 /* "excess" empty pointers on negative offsets ----------------------------- */
                 buffer = (char*)NULL;
                 AZ_Assert((reinterpret_cast<AZ::u64>(buffer) % 16) == 0, "%s: Unexpected buffer size!", __FUNCTION__);
-
 
                 for (r = -excess; r < 0; r++)
                 {
@@ -138,7 +189,6 @@ namespace ImageProcessingAtom
                 buffer = (char*)buffers + (planesize * p);
                 AZ_Assert((reinterpret_cast<AZ::u64>(buffer) % 16) == 0, "%s: Unexpected buffer size!", __FUNCTION__);
 
-
                 for (r = abs(aligned[1]); r < abs(aligned[1]) + excess; r++, buffer += rowsize)
                 {
                     rows[p][r] = (DataType*)buffer;
@@ -148,13 +198,13 @@ namespace ImageProcessingAtom
 
         inline void clear()
         {
-            memset(buffers, 0,                                planesize    * planes);
+            memset(buffers, 0, planesize * planes);
         }
 
         inline void delocate()
         {
-            memset(buffers, 0,                                planesize    * planes);
-            memset(rows, 0, sizeof(DataType * *) * planes + rowblocksize * planes);
+            memset(buffers, 0, planesize * planes);
+            memset(rows, 0, sizeof(DataType**) * planes + rowblocksize * planes);
         }
 
         inline void relocate(Rect2D take)
@@ -164,26 +214,26 @@ namespace ImageProcessingAtom
         }
 
     protected:
-        inline void allocate  ()
+        inline void allocate()
         {
             /* adjust rows */
-            allocatedC[0] =                 allocatedC[0];
+            allocatedC[0] = allocatedC[0];
             allocatedC[1] = maximum<int>(1, allocatedC[1]);
 
             /* if "(y < 0)", we allocate exactly 1 row and replicate it over "abs(y)" */
-            planesize    = sizeof(DataType) * aligned[0] * maximum<int>(1, aligned[1]);
+            planesize = sizeof(DataType) * aligned[0] * maximum<int>(1, aligned[1]);
             rowblocksize = sizeof(DataType*) * (abs<int>(aligned[1]) + (2 * excess) + 16);
 
             /* all planes after each other:
              *
              *  start -> plane0 -> plane1 -> ...
              */
-            buffers = (DataType*  )AZ_OS_MALLOC(planesize    * planes, 16);
+            buffers = (DataType*)AZ_OS_MALLOC(planesize * planes, 16);
             /* all pointers after each other:
              *
              *  start -> unsigned __int64 to planes -> unsigned __int64 to rows of planes
              */
-            rows    = (DataType***)AZ_OS_MALLOC(sizeof(DataType * *) * planes + rowblocksize * planes, 16);
+            rows = (DataType***)AZ_OS_MALLOC(sizeof(DataType**) * planes + rowblocksize * planes, 16);
 
             /* ensure the blocks are aligned */
             AZ_Assert(((AZ::s64)buffers % 16) == 0, "%s: Expect blocks are aligned!", __FUNCTION__);
@@ -200,7 +250,7 @@ namespace ImageProcessingAtom
         }
 
         Rect2D allocatedC, aligned; // real buffer sizes and its aligned counterpart
-        Rect2D taken, used;       // actually taken sizes and its aligned counterpart
+        Rect2D taken, used; // actually taken sizes and its aligned counterpart
 
         int planes;
         long int planesize, rowblocksize;
@@ -208,385 +258,397 @@ namespace ImageProcessingAtom
         DataType*** rows;
     };
 
-    /* #################################################################################################################### \
-     */
-    #define filterTVariables(filterVxNNum, dtyp, wtyp, reps)                                                                                                                                   \
-        /* addition of c-pointers already takes care of datatype-sizes */                                                                                                                      \
-        const signed long int dy = /*parm->mirror ? -1 :*/ 1;                                                                                                                                  \
-        const unsigned int stridei = parm->incols  * 1 * 1;                                                                                                                                    \
-        [[maybe_unused]] const unsigned int stridet = parm->subcols * 1 * 1;                                                                                                                   \
-        [[maybe_unused]] const unsigned int strideo = parm->outcols * 1 * 1;                                                                                                                   \
-        /* offset and shift calculations still require the unmodified values */                                                                                                                \
-        const unsigned int strideiraw = parm->incols;                                                                                                                                          \
-        [[maybe_unused]] const unsigned int stridetraw = parm->subcols;                                                                                                                        \
-        const unsigned int strideoraw = parm->outcols;                                                                                                                                         \
-                                                                                                                                                                                               \
-        class Plane2D<dtyp> tmp(tmpcols, tmprows, 4);                                                                                                                                          \
-        dtyp*** t = (dtyp***)tmp;                                                                                                                                                              \
-        int srcPos, dstPos;                                                                                                                                                                    \
-        bool plusminush = false; [[maybe_unused]] const bool of = true;                                                                                                                        \
-        bool plusminusv = false; [[maybe_unused]] const bool nc = false;                                                                                                                       \
-        FilterWeights<wtyp>* fwh = calculateFilterWeights<wtyp>(parm->resample.colrem, parm->caged ? 0 : 0 - parm->region.subtop, parm->caged ? srccols : parm->subrows - parm->region.subtop, \
-            parm->resample.colquo,               0,               dstcols, reps, parm->resample.colblur, parm->resample.wf, parm->resample.operation != eWindowEvaluation_Sum, plusminush);    \
-        FilterWeights<wtyp>* fwv = calculateFilterWeights<wtyp>(parm->resample.rowrem, parm->caged ? 0 : 0 - parm->region.intop, parm->caged ? srcrows : parm->inrows  - parm->region.intop,   \
-            parm->resample.rowquo,               0,               dstrows, reps, parm->resample.rowblur, parm->resample.wf, parm->resample.operation != eWindowEvaluation_Sum, plusminusv);    \
+/* #################################################################################################################### \
+ */
+#define filterTVariables(filterVxNNum, dtyp, wtyp, reps)                                                                                   \
+    /* addition of c-pointers already takes care of datatype-sizes */                                                                      \
+    const signed long int dy = /*parm->mirror ? -1 :*/ 1;                                                                                  \
+    const unsigned int stridei = parm->incols * 1 * 1;                                                                                     \
+    [[maybe_unused]] const unsigned int stridet = parm->subcols * 1 * 1;                                                                   \
+    [[maybe_unused]] const unsigned int strideo = parm->outcols * 1 * 1;                                                                   \
+    /* offset and shift calculations still require the unmodified values */                                                                \
+    const unsigned int strideiraw = parm->incols;                                                                                          \
+    [[maybe_unused]] const unsigned int stridetraw = parm->subcols;                                                                        \
+    const unsigned int strideoraw = parm->outcols;                                                                                         \
+                                                                                                                                           \
+    class Plane2D<dtyp> tmp(tmpcols, tmprows, 4);                                                                                          \
+    dtyp*** t = (dtyp***)tmp;                                                                                                              \
+    int srcPos, dstPos;                                                                                                                    \
+    bool plusminush = false;                                                                                                               \
+    [[maybe_unused]] const bool of = true;                                                                                                 \
+    bool plusminusv = false;                                                                                                               \
+    [[maybe_unused]] const bool nc = false;                                                                                                \
+    FilterWeights<wtyp>* fwh = calculateFilterWeights<wtyp>(                                                                               \
+        parm->resample.colrem,                                                                                                             \
+        parm->caged ? 0 : 0 - parm->region.subtop,                                                                                         \
+        parm->caged ? srccols : parm->subrows - parm->region.subtop,                                                                       \
+        parm->resample.colquo,                                                                                                             \
+        0,                                                                                                                                 \
+        dstcols,                                                                                                                           \
+        reps,                                                                                                                              \
+        parm->resample.colblur,                                                                                                            \
+        parm->resample.wf,                                                                                                                 \
+        parm->resample.operation != eWindowEvaluation_Sum,                                                                                 \
+        plusminush);                                                                                                                       \
+    FilterWeights<wtyp>* fwv = calculateFilterWeights<wtyp>(                                                                               \
+        parm->resample.rowrem,                                                                                                             \
+        parm->caged ? 0 : 0 - parm->region.intop,                                                                                          \
+        parm->caged ? srcrows : parm->inrows - parm->region.intop,                                                                         \
+        parm->resample.rowquo,                                                                                                             \
+        0,                                                                                                                                 \
+        dstrows,                                                                                                                           \
+        reps,                                                                                                                              \
+        parm->resample.rowblur,                                                                                                            \
+        parm->resample.wf,                                                                                                                 \
+        parm->resample.operation != eWindowEvaluation_Sum,                                                                                 \
+        plusminusv);
 
-    #define filterFTVariables(filterVxNNum) \
-        filterTVariables(filterVxNNum, float, signed short, 1)
+#define filterFTVariables(filterVxNNum) filterTVariables(filterVxNNum, float, signed short, 1)
 
-    /* #################################################################################################################### \
-     */
-    #define filterTCleanUp(filterVxNNum) \
-        delete[] fwh;                    \
-        delete[] fwv;
+/* #################################################################################################################### \
+ */
+#define filterTCleanUp(filterVxNNum)                                                                                                       \
+    delete[] fwh;                                                                                                                          \
+    delete[] fwv;
 
-    /* #################################################################################################################### \
-     */
-    #define filterTInitLoop()
+/* #################################################################################################################### \
+ */
+#define filterTInitLoop()
 
-    /* ******************************************************************************************************************** \
-     */
-    #define filterTExitLoop()
+/* ******************************************************************************************************************** \
+ */
+#define filterTExitLoop()
 
-    /* #################################################################################################################### \
-     */
-    #define filter4xNf(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, pm, hv, dtyp, atyp) \
-        init(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);                                                                  \
-                                                                                                                                     \
-        dstPos = 0; do {                                                                                                             \
-            FilterWeights<signed short>& fw = *(hv + dstPos);                                                                        \
-            const signed short* w = fw.weights;                                                                                      \
-                                                                                                                                     \
-            next(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);                                                              \
-                                                                                                                                     \
-            atyp res0 = (op != eWindowEvaluation_Min ? 0 : 32768);                                                                   \
-            atyp res1 = (op != eWindowEvaluation_Min ? 0 : 32768);                                                                   \
-            atyp res2 = (op != eWindowEvaluation_Min ? 0 : 32768);                                                                   \
-            atyp res3 = (op != eWindowEvaluation_Min ? 0 : 32768);                                                                   \
-                                                                                                                                     \
-            srcPos = fw.first; do {                                                                                                  \
-                /* get value */                                                                                                      \
-                fetch(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);                                                         \
-                                                                                                                                     \
-                /* build result using sign inverted weights [32767,-32768] */                                                        \
-                if constexpr (op == eWindowEvaluation_Sum) {                                                                         \
-                    res0 -= ((atyp)_0 * *w);                                                                                         \
-                    res1 -= ((atyp)_1 * *w);                                                                                         \
-                    res2 -= ((atyp)_2 * *w);                                                                                         \
-                    res3 -= ((atyp)_3 * *w++);                                                                                       \
-                }                                                                                                                    \
-                else if constexpr (op == eWindowEvaluation_Max) {                                                                    \
-                    res0 = maximum(res0, -(atyp)_0 * *w);                                                                            \
-                    res1 = maximum(res1, -(atyp)_1 * *w);                                                                            \
-                    res2 = maximum(res2, -(atyp)_2 * *w);                                                                            \
-                    res3 = maximum(res3, -(atyp)_3 * *w++);                                                                          \
-                }                                                                                                                    \
-                else if constexpr (op == eWindowEvaluation_Min) {                                                                    \
-                    res0 = (atyp)32768.0 - maximum((atyp)32768.0 - res0, -(atyp)(1.0f - _0) * *w);                                   \
-                    res1 = (atyp)32768.0 - maximum((atyp)32768.0 - res1, -(atyp)(1.0f - _1) * *w);                                   \
-                    res2 = (atyp)32768.0 - maximum((atyp)32768.0 - res2, -(atyp)(1.0f - _2) * *w);                                   \
-                    res3 = (atyp)32768.0 - maximum((atyp)32768.0 - res3, -(atyp)(1.0f - _3) * *w++);                                 \
-                }                                                                                                                    \
-            } while (++srcPos < fw.last);                                                                                            \
-                                                                                                                                     \
-            /*  dtyp _0 = ldexp((dtyp)res0, -15);   */                                                                               \
-            /*  dtyp _1 = ldexp((dtyp)res1, -15);   */                                                                               \
-            /*  dtyp _2 = ldexp((dtyp)res2, -15);   */                                                                               \
-            /*  dtyp _3 = ldexp((dtyp)res3, -15);   */                                                                               \
-                                                                                                                                     \
-            dtyp _0 = (dtyp)res0 * (dtyp)(1.0 / 32768.0);                                                                            \
-            dtyp _1 = (dtyp)res1 * (dtyp)(1.0 / 32768.0);                                                                            \
-            dtyp _2 = (dtyp)res2 * (dtyp)(1.0 / 32768.0);                                                                            \
-            dtyp _3 = (dtyp)res3 * (dtyp)(1.0 / 32768.0);                                                                            \
-                                                                                                                                     \
-            /* put value */                                                                                                          \
-            store(srcOffs, srcSize, srcSkip, dstOffs,   dstSize, dstSkip);                                                           \
-        } while (++dstPos < (signed)dstSize);                                                                                        \
-                                                                                                                                     \
-        exit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);
+/* #################################################################################################################### \
+ */
+#define filter4xNf(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, pm, hv, dtyp, atyp)           \
+    init(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);                                                                            \
+                                                                                                                                           \
+    dstPos = 0;                                                                                                                            \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        FilterWeights<signed short>& fw = *(hv + dstPos);                                                                                  \
+        const signed short* w = fw.weights;                                                                                                \
+                                                                                                                                           \
+        next(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);                                                                        \
+                                                                                                                                           \
+        atyp res0 = (op != eWindowEvaluation_Min ? 0 : 32768);                                                                             \
+        atyp res1 = (op != eWindowEvaluation_Min ? 0 : 32768);                                                                             \
+        atyp res2 = (op != eWindowEvaluation_Min ? 0 : 32768);                                                                             \
+        atyp res3 = (op != eWindowEvaluation_Min ? 0 : 32768);                                                                             \
+                                                                                                                                           \
+        srcPos = fw.first;                                                                                                                 \
+        do                                                                                                                                 \
+        {                                                                                                                                  \
+            /* get value */                                                                                                                \
+            fetch(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);                                                                   \
+                                                                                                                                           \
+            /* build result using sign inverted weights [32767,-32768] */                                                                  \
+            if constexpr (op == eWindowEvaluation_Sum)                                                                                     \
+            {                                                                                                                              \
+                res0 -= ((atyp)_0 * *w);                                                                                                   \
+                res1 -= ((atyp)_1 * *w);                                                                                                   \
+                res2 -= ((atyp)_2 * *w);                                                                                                   \
+                res3 -= ((atyp)_3 * *w++);                                                                                                 \
+            }                                                                                                                              \
+            else if constexpr (op == eWindowEvaluation_Max)                                                                                \
+            {                                                                                                                              \
+                res0 = maximum(res0, -(atyp)_0 * *w);                                                                                      \
+                res1 = maximum(res1, -(atyp)_1 * *w);                                                                                      \
+                res2 = maximum(res2, -(atyp)_2 * *w);                                                                                      \
+                res3 = maximum(res3, -(atyp)_3 * *w++);                                                                                    \
+            }                                                                                                                              \
+            else if constexpr (op == eWindowEvaluation_Min)                                                                                \
+            {                                                                                                                              \
+                res0 = (atyp)32768.0 - maximum((atyp)32768.0 - res0, -(atyp)(1.0f - _0) * *w);                                             \
+                res1 = (atyp)32768.0 - maximum((atyp)32768.0 - res1, -(atyp)(1.0f - _1) * *w);                                             \
+                res2 = (atyp)32768.0 - maximum((atyp)32768.0 - res2, -(atyp)(1.0f - _2) * *w);                                             \
+                res3 = (atyp)32768.0 - maximum((atyp)32768.0 - res3, -(atyp)(1.0f - _3) * *w++);                                           \
+            }                                                                                                                              \
+        } while (++srcPos < fw.last);                                                                                                      \
+                                                                                                                                           \
+        /*  dtyp _0 = ldexp((dtyp)res0, -15);   */                                                                                         \
+        /*  dtyp _1 = ldexp((dtyp)res1, -15);   */                                                                                         \
+        /*  dtyp _2 = ldexp((dtyp)res2, -15);   */                                                                                         \
+        /*  dtyp _3 = ldexp((dtyp)res3, -15);   */                                                                                         \
+                                                                                                                                           \
+        dtyp _0 = (dtyp)res0 * (dtyp)(1.0 / 32768.0);                                                                                      \
+        dtyp _1 = (dtyp)res1 * (dtyp)(1.0 / 32768.0);                                                                                      \
+        dtyp _2 = (dtyp)res2 * (dtyp)(1.0 / 32768.0);                                                                                      \
+        dtyp _3 = (dtyp)res3 * (dtyp)(1.0 / 32768.0);                                                                                      \
+                                                                                                                                           \
+        /* put value */                                                                                                                    \
+        store(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);                                                                       \
+    } while (++dstPos < (signed)dstSize);                                                                                                  \
+                                                                                                                                           \
+    exit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip);
 
-    #define filterF4xNHor(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, pm) \
-        filter4xNf(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, 0, fwh, float, float /*double*/)
+#define filterF4xNHor(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, pm)                        \
+    filter4xNf(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, 0, fwh, float, float /*double*/)
 
-    #define filterF4xNVer(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, pm) \
-        filter4xNf(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, 0, fwv, float, float /*double*/)
+#define filterF4xNVer(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, pm)                        \
+    filter4xNf(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip, init, next, fetch, store, exit, op, 0, fwv, float, float /*double*/)
 
-    /* #################################################################################################################### \
-     */
-    #define resampleF4xNFromPlane(stride)    \
-        float _0, _1, _2, _3;                \
-                                             \
-        _0 = (*i0)[ix], i0 += (stride) * dy; \
-        _1 = (*i1)[ix], i1 += (stride) * dy; \
-        _2 = (*i2)[ix], i2 += (stride) * dy; \
-        _3 = (*i3)[ix], i3 += (stride) * dy;
+/* #################################################################################################################### \
+ */
+#define resampleF4xNFromPlane(stride)                                                                                                      \
+    float _0, _1, _2, _3;                                                                                                                  \
+                                                                                                                                           \
+    _0 = (*i0)[ix], i0 += (stride) * dy;                                                                                                   \
+    _1 = (*i1)[ix], i1 += (stride) * dy;                                                                                                   \
+    _2 = (*i2)[ix], i2 += (stride) * dy;                                                                                                   \
+    _3 = (*i3)[ix], i3 += (stride) * dy;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define resampleF4xNFromStream(stride, instream) \
-        float _0, _1, _2, _3;                        \
-                                                     \
-        _0 = instream[0];                            \
-        _1 = instream[1];                            \
-        _2 = instream[2];                            \
-        _3 = instream[3], instream += (stride) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define resampleF4xNFromStream(stride, instream)                                                                                           \
+    float _0, _1, _2, _3;                                                                                                                  \
+                                                                                                                                           \
+    _0 = instream[0];                                                                                                                      \
+    _1 = instream[1];                                                                                                                      \
+    _2 = instream[2];                                                                                                                      \
+    _3 = instream[3], instream += (stride) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define resampleF4xNFromStreamSwapped(stride, instream) \
-        float _0, _1, _2, _3;                               \
-                                                            \
-        _3 = instream[0];                                   \
-        _2 = instream[1];                                   \
-        _1 = instream[2];                                   \
-        _0 = instream[3], instream += (stride) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define resampleF4xNFromStreamSwapped(stride, instream)                                                                                    \
+    float _0, _1, _2, _3;                                                                                                                  \
+                                                                                                                                           \
+    _3 = instream[0];                                                                                                                      \
+    _2 = instream[1];                                                                                                                      \
+    _1 = instream[2];                                                                                                                      \
+    _0 = instream[3], instream += (stride) * 4;
 
-    /* #################################################################################################################### \
-     */
-    #define resampleF4xNToPlane(stride) \
-        (*o0)[ox] = _0;                 \
-        (*o1)[ox] = _1;                 \
-        (*o2)[ox] = _2;                 \
-        (*o3)[ox] = _3, ox += (1) * 1;
+/* #################################################################################################################### \
+ */
+#define resampleF4xNToPlane(stride)                                                                                                        \
+    (*o0)[ox] = _0;                                                                                                                        \
+    (*o1)[ox] = _1;                                                                                                                        \
+    (*o2)[ox] = _2;                                                                                                                        \
+    (*o3)[ox] = _3, ox += (1) * 1;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define resampleF4xNToStream(stride, outstream) \
-        outstream[0] = _0;                          \
-        outstream[1] = _1;                          \
-        outstream[2] = _2;                          \
-        outstream[3] = _3, outstream += (1) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define resampleF4xNToStream(stride, outstream)                                                                                            \
+    outstream[0] = _0;                                                                                                                     \
+    outstream[1] = _1;                                                                                                                     \
+    outstream[2] = _2;                                                                                                                     \
+    outstream[3] = _3, outstream += (1) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define resampleF4xNToStreamSwapped(stride, outstream) \
-        outstream[0] = _3;                                 \
-        outstream[1] = _2;                                 \
-        outstream[2] = _1;                                 \
-        outstream[3] = _0, outstream += (1) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define resampleF4xNToStreamSwapped(stride, outstream)                                                                                     \
+    outstream[0] = _3;                                                                                                                     \
+    outstream[1] = _2;                                                                                                                     \
+    outstream[2] = _1;                                                                                                                     \
+    outstream[3] = _0, outstream += (1) * 4;
 
-    /* #################################################################################################################### \
-     */
-    #undef  filterF4xNFromPlane
-    #define filterF4xNFromPlane(stride) \
-        resampleF4xNFromPlane(stride)
+/* #################################################################################################################### \
+ */
+#undef filterF4xNFromPlane
+#define filterF4xNFromPlane(stride) resampleF4xNFromPlane(stride)
 
-    /* ******************************************************************************************************************** \
-     */
-    #undef  filterF4xNFromStream
-    #define filterF4xNFromStream(stride, instream) \
-        resampleF4xNFromStream(stride, instream)
+/* ******************************************************************************************************************** \
+ */
+#undef filterF4xNFromStream
+#define filterF4xNFromStream(stride, instream) resampleF4xNFromStream(stride, instream)
 
-    /* ******************************************************************************************************************** \
-     */
-    #undef  filterF4xNFromStreamSwapped
-    #define filterF4xNFromStreamSwapped(stride, instream) \
-        resampleF4xNFromStreamSwapped(stride, instream)
+/* ******************************************************************************************************************** \
+ */
+#undef filterF4xNFromStreamSwapped
+#define filterF4xNFromStreamSwapped(stride, instream) resampleF4xNFromStreamSwapped(stride, instream)
 
-    /* #################################################################################################################### \
-     */
-    #undef  filterF4xNToPlane
-    #define filterF4xNToPlane(stride) \
-        resampleF4xNToPlane(stride)
+/* #################################################################################################################### \
+ */
+#undef filterF4xNToPlane
+#define filterF4xNToPlane(stride) resampleF4xNToPlane(stride)
 
-    /* ******************************************************************************************************************** \
-     */
-    #undef  filterF4xNToStream
-    #define filterF4xNToStream(stride, outstream) \
-        resampleF4xNToStream(stride, outstream)
+/* ******************************************************************************************************************** \
+ */
+#undef filterF4xNToStream
+#define filterF4xNToStream(stride, outstream) resampleF4xNToStream(stride, outstream)
 
-    /* ******************************************************************************************************************** \
-     */
-    #undef  filterF4xNToStreamSwapped
-    #define filterF4xNToStreamSwapped(stride, outstream) \
-        resampleF4xNToStreamSwapped(stride, outstream)
+/* ******************************************************************************************************************** \
+ */
+#undef filterF4xNToStreamSwapped
+#define filterF4xNToStreamSwapped(stride, outstream) resampleF4xNToStreamSwapped(stride, outstream)
 
-    /* #################################################################################################################### \
-     */
-    #define loopEnter(id, untill, advance) \
-        unsigned int id; for (id = 0; id < untill; id += advance) {
-    #define loopLeave(id, untill, advance) \
-        }
+/* #################################################################################################################### \
+ */
+#define loopEnter(id, untill, advance)                                                                                                     \
+    unsigned int id;                                                                                                                       \
+    for (id = 0; id < untill; id += advance)                                                                                               \
+    {
+#define loopLeave(id, untill, advance) }
 
-    /* #################################################################################################################### \
-     */
-    #define all4InitSwappablePlanePointers(left, top, row, rows, pp, swap, dtyp)                       \
-        dtyp* pp##0, *pp##1, *pp##2, *pp##3;                                                           \
-                                                                                                       \
-        pp##0 = pp[0][/*parm->mirror ? (rows - 1)   - (row + top) :*/ (row + top)] + left;     /* r */ \
-        pp##1 = pp[1][/*parm->mirror ? (rows - 1)   - (row + top) :*/ (row + top)] + left;     /* g */ \
-        pp##2 = pp[2][/*parm->mirror ? (rows - 1)   - (row + top) :*/ (row + top)] + left;     /* b */ \
-        pp##3 = pp[3][/*parm->mirror ? (rows - 1)   - (row + top) :*/ (row + top)] + left;     /* a */
+/* #################################################################################################################### \
+ */
+#define all4InitSwappablePlanePointers(left, top, row, rows, pp, swap, dtyp)                                                               \
+    dtyp *pp##0, *pp##1, *pp##2, *pp##3;                                                                                                   \
+                                                                                                                                           \
+    pp##0 = pp[0][/*parm->mirror ? (rows - 1)   - (row + top) :*/ (row + top)] + left; /* r */                                             \
+    pp##1 = pp[1][/*parm->mirror ? (rows - 1)   - (row + top) :*/ (row + top)] + left; /* g */                                             \
+    pp##2 = pp[2][/*parm->mirror ? (rows - 1)   - (row + top) :*/ (row + top)] + left; /* b */                                             \
+    pp##3 = pp[3][/*parm->mirror ? (rows - 1)   - (row + top) :*/ (row + top)] + left; /* a */
 
-    #define allF4InitSwappablePlanePointers(left, top, row, rows, pp, swap) \
-        all4InitSwappablePlanePointers(left, top, row, rows, pp, swap, float)
+#define allF4InitSwappablePlanePointers(left, top, row, rows, pp, swap)                                                                    \
+    all4InitSwappablePlanePointers(left, top, row, rows, pp, swap, float)
 
-    /* #################################################################################################################### \
-     */
-    #define all4InitFixedPlanePointers(left, top, row, rows, pp, swap, dtyp) \
-        dtyp* pp##0, *pp##1, *pp##2, *pp##3;                                 \
-                                                                             \
-        pp##0 = pp[0][(row + top)] + left;      /* r */                      \
-        pp##1 = pp[1][(row + top)] + left;      /* g */                      \
-        pp##2 = pp[2][(row + top)] + left;      /* b */                      \
-        pp##3 = pp[3][(row + top)] + left;      /* a */
+/* #################################################################################################################### \
+ */
+#define all4InitFixedPlanePointers(left, top, row, rows, pp, swap, dtyp)                                                                   \
+    dtyp *pp##0, *pp##1, *pp##2, *pp##3;                                                                                                   \
+                                                                                                                                           \
+    pp##0 = pp[0][(row + top)] + left; /* r */                                                                                             \
+    pp##1 = pp[1][(row + top)] + left; /* g */                                                                                             \
+    pp##2 = pp[2][(row + top)] + left; /* b */                                                                                             \
+    pp##3 = pp[3][(row + top)] + left; /* a */
 
-    #define allF4InitFixedPlanePointers(left, top, row, rows, pp, swap) \
-        all4InitFixedPlanePointers(left, top, row, rows, pp, swap, float)
+#define allF4InitFixedPlanePointers(left, top, row, rows, pp, swap) all4InitFixedPlanePointers(left, top, row, rows, pp, swap, float)
 
-    /* #################################################################################################################### \
-     */
-    #define all4InitSwappablePlaneReferences(left, offs, top, row, rows, pp, swap, dtyp)         \
-        unsigned long int pp##x = left + offs;                                                   \
-        dtyp** pp##0;                                                                            \
-        dtyp** pp##1;                                                                            \
-        dtyp** pp##2;                                                                            \
-        dtyp** pp##3;                                                                            \
-                                                                                                 \
-        pp##0 = pp[0] + (/*parm->mirror ? (rows - 1) - (row + top) :*/ (row + top));     /* r */ \
-        pp##1 = pp[1] + (/*parm->mirror ? (rows - 1) - (row + top) :*/ (row + top));     /* g */ \
-        pp##2 = pp[2] + (/*parm->mirror ? (rows - 1) - (row + top) :*/ (row + top));     /* b */ \
-        pp##3 = pp[3] + (/*parm->mirror ? (rows - 1) - (row + top) :*/ (row + top));     /* a */
+/* #################################################################################################################### \
+ */
+#define all4InitSwappablePlaneReferences(left, offs, top, row, rows, pp, swap, dtyp)                                                       \
+    unsigned long int pp##x = left + offs;                                                                                                 \
+    dtyp** pp##0;                                                                                                                          \
+    dtyp** pp##1;                                                                                                                          \
+    dtyp** pp##2;                                                                                                                          \
+    dtyp** pp##3;                                                                                                                          \
+                                                                                                                                           \
+    pp##0 = pp[0] + (/*parm->mirror ? (rows - 1) - (row + top) :*/ (row + top)); /* r */                                                   \
+    pp##1 = pp[1] + (/*parm->mirror ? (rows - 1) - (row + top) :*/ (row + top)); /* g */                                                   \
+    pp##2 = pp[2] + (/*parm->mirror ? (rows - 1) - (row + top) :*/ (row + top)); /* b */                                                   \
+    pp##3 = pp[3] + (/*parm->mirror ? (rows - 1) - (row + top) :*/ (row + top)); /* a */
 
-    #define allF4InitSwappablePlaneReferences(left, offs, top, row, rows, pp, swap) \
-        all4InitSwappablePlaneReferences(left, offs, top, row, rows, pp, swap, float)
+#define allF4InitSwappablePlaneReferences(left, offs, top, row, rows, pp, swap)                                                            \
+    all4InitSwappablePlaneReferences(left, offs, top, row, rows, pp, swap, float)
 
-    /* #################################################################################################################### \
-     */
-    #define all4InitFixedPlaneReferences(left, row, rows, pp, ps, dtyp) \
-        unsigned long int pp##x = left;                                 \
-        dtyp** pp##0;                                                   \
-        dtyp** pp##1;                                                   \
-        dtyp** pp##2;                                                   \
-        dtyp** pp##3;                                                   \
-                                                                        \
-        pp##0 = ps[0] + (row);      /* r */                             \
-        pp##1 = ps[1] + (row);      /* g */                             \
-        pp##2 = ps[2] + (row);      /* b */                             \
-        pp##3 = ps[3] + (row);      /* a */
+/* #################################################################################################################### \
+ */
+#define all4InitFixedPlaneReferences(left, row, rows, pp, ps, dtyp)                                                                        \
+    unsigned long int pp##x = left;                                                                                                        \
+    dtyp** pp##0;                                                                                                                          \
+    dtyp** pp##1;                                                                                                                          \
+    dtyp** pp##2;                                                                                                                          \
+    dtyp** pp##3;                                                                                                                          \
+                                                                                                                                           \
+    pp##0 = ps[0] + (row); /* r */                                                                                                         \
+    pp##1 = ps[1] + (row); /* g */                                                                                                         \
+    pp##2 = ps[2] + (row); /* b */                                                                                                         \
+    pp##3 = ps[3] + (row); /* a */
 
-    #define allF4InitFixedPlaneReferences(left, row, rows, pp, ps) \
-        all4InitFixedPlaneReferences(left, row, rows, pp, ps, float)
+#define allF4InitFixedPlaneReferences(left, row, rows, pp, ps) all4InitFixedPlaneReferences(left, row, rows, pp, ps, float)
 
-    /* #################################################################################################################### \
-     */
-    #define allF4AdvanceSwappablePlaneReferences(row, rows, pp) \
-        pp##0 += (rows - row) * dy;                     /* r */ \
-        pp##1 += (rows - row) * dy;                     /* g */ \
-        pp##2 += (rows - row) * dy;                     /* b */ \
-        pp##3 += (rows - row) * dy;                     /* a */
+/* #################################################################################################################### \
+ */
+#define allF4AdvanceSwappablePlaneReferences(row, rows, pp)                                                                                \
+    pp##0 += (rows - row) * dy; /* r */                                                                                                    \
+    pp##1 += (rows - row) * dy; /* g */                                                                                                    \
+    pp##2 += (rows - row) * dy; /* b */                                                                                                    \
+    pp##3 += (rows - row) * dy; /* a */
 
-    /* #################################################################################################################### \
-     */
-    #define allF4AdvanceFixedPlaneReferences(row, rows, pp) \
-        allF4AdvanceSwappablePlaneReferences(row, rows, pp)
+/* #################################################################################################################### \
+ */
+#define allF4AdvanceFixedPlaneReferences(row, rows, pp) allF4AdvanceSwappablePlaneReferences(row, rows, pp)
 
-    /* #################################################################################################################### \
-     */
-    #define allF4AdvanceStreamPointer(left, col, cols, sp) \
-        sp += ((cols) - (left + col)) * 4;
+/* #################################################################################################################### \
+ */
+#define allF4AdvanceStreamPointer(left, col, cols, sp) sp += ((cols) - (left + col)) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define allF4AdvNMULStreamPointer(top, stride, sp) \
-        sp -= ((stride) * (top)) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define allF4AdvNMULStreamPointer(top, stride, sp) sp -= ((stride) * (top)) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define allF4AdvPMULStreamPointer(top, stride, sp) \
-        sp += ((stride) * (top)) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define allF4AdvPMULStreamPointer(top, stride, sp) sp += ((stride) * (top)) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define allF4AdvSUBMStreamPointer(left, top, stride, sp) \
-        sp -= (((stride) * (top)) - (left)) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define allF4AdvSUBMStreamPointer(left, top, stride, sp) sp -= (((stride) * (top)) - (left)) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define allF4AdvADDMStreamPointer(left, top, stride, sp) \
-        sp += ((left) + ((stride) * (top))) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define allF4AdvADDMStreamPointer(left, top, stride, sp) sp += ((left) + ((stride) * (top))) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define allF4AdvPADDStreamPointer(offs, sp) \
-        sp += (offs) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define allF4AdvPADDStreamPointer(offs, sp) sp += (offs) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define allF4AdvSSUBStreamPointer(top, shift, offs, sp) \
-        sp += (((top) << (shift)) - (offs)) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define allF4AdvSSUBStreamPointer(top, shift, offs, sp) sp += (((top) << (shift)) - (offs)) * 4;
 
-    /* ******************************************************************************************************************** \
-     */
-    #define allF4AdvNAMAStreamPointer(left, top, offs, stride, sp) \
-        sp -= ((left) + (((top) + (offs)) * (stride))) * 4;
+/* ******************************************************************************************************************** \
+ */
+#define allF4AdvNAMAStreamPointer(left, top, offs, stride, sp) sp -= ((left) + (((top) + (offs)) * (stride))) * 4;
 
-    /* ################################################################################################################### \
-    */
-    #undef  comcpyFNum
-    #define comcpyFNum                  1
-    #undef  orderedFNum
-    #define orderedFNum                 1
-    #undef  orderedFShift
-    #define orderedFShift               0
-    #undef  interleavedFNum
-    #define interleavedFNum         1
+/* ################################################################################################################### \
+ */
+#undef comcpyFNum
+#define comcpyFNum 1
+#undef orderedFNum
+#define orderedFNum 1
+#undef orderedFShift
+#define orderedFShift 0
+#undef interleavedFNum
+#define interleavedFNum 1
 
-    /* #################################################################################################################### \
-     */
-    #      define allTInitFixedOutPlaneReferences       allF4InitFixedPlaneReferences
-    #      define allTInitFixedInPlaneReferences        allF4InitFixedPlaneReferences
-    #      define allCInitSwappableInPlaneReferences        /*allF4InitSwappablePlaneReferences*/
-    #      define allCInitSwappableOutPlaneReferences       /*allF4InitSwappablePlaneReferences*/
+/* #################################################################################################################### \
+ */
+#define allTInitFixedOutPlaneReferences allF4InitFixedPlaneReferences
+#define allTInitFixedInPlaneReferences allF4InitFixedPlaneReferences
+#define allCInitSwappableInPlaneReferences /*allF4InitSwappablePlaneReferences*/
+#define allCInitSwappableOutPlaneReferences /*allF4InitSwappablePlaneReferences*/
 
-    #      define allCAdvADDMInStreamPointer        allF4AdvADDMStreamPointer
-    #      define allCAdvPADDInStreamPointer        allF4AdvPADDStreamPointer
-    #      define allCAdvPMULInStreamPointer        allF4AdvPMULStreamPointer
-    #      define allCAdvNMULInStreamPointer        allF4AdvNMULStreamPointer
-    #      define allCAdvADDMOutStreamPointer       allF4AdvADDMStreamPointer
-    #      define allCAdvSSUBOutStreamPointer       allF4AdvSSUBStreamPointer
+#define allCAdvADDMInStreamPointer allF4AdvADDMStreamPointer
+#define allCAdvPADDInStreamPointer allF4AdvPADDStreamPointer
+#define allCAdvPMULInStreamPointer allF4AdvPMULStreamPointer
+#define allCAdvNMULInStreamPointer allF4AdvNMULStreamPointer
+#define allCAdvADDMOutStreamPointer allF4AdvADDMStreamPointer
+#define allCAdvSSUBOutStreamPointer allF4AdvSSUBStreamPointer
 
-    #      define   getCxNFromStreamSwapped     /*filterF4xNFromStreamSwapped*/
-    #      define   getCxNFromStream        filterF4xNFromStream
-    #      define   getCxNFromPlane         /*filterF4xNFromPlane*/
-    #      define   getTxNFromPlane         filterF4xNFromPlane
+#define getCxNFromStreamSwapped /*filterF4xNFromStreamSwapped*/
+#define getCxNFromStream filterF4xNFromStream
+#define getCxNFromPlane /*filterF4xNFromPlane*/
+#define getTxNFromPlane filterF4xNFromPlane
 
-    #      define   filterHor           filterF4xNHor
-    #      define   filterVer           filterF4xNVer
+#define filterHor filterF4xNHor
+#define filterVer filterF4xNVer
 
-    #      define   comcpyCCheckHiLo()      /*orderedF4CheckHiLo*/
-    #      define   comcpyCCoVar()          /*orderedF4CoVar*/
-    #      define   comcpyCHistogram()      /*orderedF4Histogram*/
+#define comcpyCCheckHiLo() /*orderedF4CheckHiLo*/
+#define comcpyCCoVar() /*orderedF4CoVar*/
+#define comcpyCHistogram() /*orderedF4Histogram*/
 
-    #      define   putCxNToStreamSwapped       /*filterF4xNToStreamSwapped*/
-    #      define   putCxNToStream          filterF4xNToStream
-    #      define   putCxNToPlane           /*filterF4xNToPlane*/
-    #      define   putTxNToPlane           filterF4xNToPlane
+#define putCxNToStreamSwapped /*filterF4xNToStreamSwapped*/
+#define putCxNToStream filterF4xNToStream
+#define putCxNToPlane /*filterF4xNToPlane*/
+#define putTxNToPlane filterF4xNToPlane
 
-    #    define orderedNum          orderedFNum
-    #    define orderedShift            orderedFShift
+#define orderedNum orderedFNum
+#define orderedShift orderedFShift
 
-    #    define comcpyCMergeHiLo(orderedNum)        /*comcpyFTMergeHiLo*/
-    #    define comcpyCCompleteCoVar(orderedNum)        /*comcpyFTCompleteCoVar*/
-    #    define comcpyCCompleteHistogram(orderedNum)    /*comcpyFTCompleteHistogram*/
+#define comcpyCMergeHiLo(orderedNum) /*comcpyFTMergeHiLo*/
+#define comcpyCCompleteCoVar(orderedNum) /*comcpyFTCompleteCoVar*/
+#define comcpyCCompleteHistogram(orderedNum) /*comcpyFTCompleteHistogram*/
 
-    #    define hiloCVariables          /*hiloFTVariables*/
-    #    define covarCVariables         /*covarFTVariables*/
-    #    define histoCVariables         /*histoFTVariables*/
+#define hiloCVariables /*hiloFTVariables*/
+#define covarCVariables /*covarFTVariables*/
+#define histoCVariables /*histoFTVariables*/
 
-    #    define filterCVariables        filterFTVariables
+#define filterCVariables filterFTVariables
 
-    #  define   orderedTInitLoop()          /*orderedTInitLoop*/
-    #  define   hiloTInitLoop()             /*hiloTInitLoop*/
-    #  define   covarTInitLoop()              /*covarTInitLoop*/
-    #  define   histoTInitLoop()              /*histoTInitLoop*/
+#define orderedTInitLoop() /*orderedTInitLoop*/
+#define hiloTInitLoop() /*hiloTInitLoop*/
+#define covarTInitLoop() /*covarTInitLoop*/
+#define histoTInitLoop() /*histoTInitLoop*/
 
-    #  define   orderedTExitLoop()          /*orderedTExitLoop*/
-    #  define   hiloTExitLoop()             /*hiloTExitLoop*/
-    #  define   covarTExitLoop()              /*covarTExitLoop*/
-    #  define   histoTExitLoop()              /*histoTExitLoop*/
+#define orderedTExitLoop() /*orderedTExitLoop*/
+#define hiloTExitLoop() /*hiloTExitLoop*/
+#define covarTExitLoop() /*covarTExitLoop*/
+#define histoTExitLoop() /*histoTExitLoop*/
 
-    #  define   filterCCleanUp          filterTCleanUp
+#define filterCCleanUp filterTCleanUp
 
     /* #################################################################################################################### \
      */
@@ -768,10 +830,10 @@ namespace ImageProcessingAtom
         const unsigned int cstZero = 0;
 
         /* temporary buffer region */
-        parm->subrows        = srccols;
-        parm->subcols        = dstrows;
+        parm->subrows = srccols;
+        parm->subcols = dstrows;
         parm->region.subleft = 0;
-        parm->region.subtop  = 0;
+        parm->region.subtop = 0;
         parm->region.subcols = parm->subcols;
         parm->region.subrows = parm->subrows;
 
@@ -784,19 +846,18 @@ namespace ImageProcessingAtom
             calculateFilterRange(srccols, oleft, oright, dstcols, 0, dstcols, parm->resample.colblur, parm->resample.wf);
 
             /* round down left, round up right */
-            oleft  =  oleft                      & (~(orderedNum - 1));
+            oleft = oleft & (~(orderedNum - 1));
             oright = (oright + (orderedNum - 1)) & (~(orderedNum - 1));
 
             /* clamp to available image-rectangle */
-            if ((oleft  < (signed)parm->region.subtop) ||
-                (oright > (signed)parm->subrows))
+            if ((oleft < (signed)parm->region.subtop) || (oright > (signed)parm->subrows))
             {
-                oleft  = maximum<int>(oleft, -(signed)parm->region.inleft);
-                oright = minimum<int>(oright,  (signed)parm->incols);
+                oleft = maximum<int>(oleft, -(signed)parm->region.inleft);
+                oright = minimum<int>(oright, (signed)parm->incols);
             }
 
             /* readjust temporary buffer region to include out-of-region accesses */
-            parm->region.inleft += oleft; //rm->docols  -= oleft; //rm->docols  += (oright - srccols);
+            parm->region.inleft += oleft; // rm->docols  -= oleft; //rm->docols  += (oright - srccols);
             parm->region.subtop -= oleft;
             parm->subrows -= oleft;
             parm->subrows += (oright - srccols);
@@ -827,42 +888,52 @@ namespace ImageProcessingAtom
          */
         allCAdvADDMInStreamPointer(parm->region.inleft, parm->region.intop, parm->incols, i);
 
-    #define filterRowInit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) \
-        allTInitFixedOutPlaneReferences(cstZero, srcOffs, -, o, t);
+#define filterRowInit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) allTInitFixedOutPlaneReferences(cstZero, srcOffs, -, o, t);
 
-    #define filterRowNext(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                 \
-        /* every in/out-put may swap */                                                                                         \
-        allCInitSwappableInPlaneReferences(parm->region.inleft, srcOffs, parm->region.intop, fw.first, parm->inrows, i, false); \
-        /* because the filter moves back and forth, we always have to reposition from 0 */                                      \
-        allCAdvPMULInStreamPointer(srcSkip##raw, fw.first, i);
+#define filterRowNext(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                                \
+    /* every in/out-put may swap */                                                                                                        \
+    allCInitSwappableInPlaneReferences(parm->region.inleft, srcOffs, parm->region.intop, fw.first, parm->inrows, i, false);                \
+    /* because the filter moves back and forth, we always have to reposition from 0 */                                                     \
+    allCAdvPMULInStreamPointer(srcSkip##raw, fw.first, i);
 
-    #define filterRowFetch(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) \
-        /* vertical stride, horizontal fetch */                                  \
-        /* getCxNFromStreamSwapped(srcSkip, i); Expands to nothing */            \
-        getCxNFromStream(srcSkip, i);                                            \
-        getCxNFromPlane(1);                                                      \
-                                                                                 \
-        /*srcPos++;*/
+#define filterRowFetch(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                               \
+    /* vertical stride, horizontal fetch */                                                                                                \
+    /* getCxNFromStreamSwapped(srcSkip, i); Expands to nothing */                                                                          \
+    getCxNFromStream(srcSkip, i);                                                                                                          \
+    getCxNFromPlane(1);                                                                                                                    \
+                                                                                                                                           \
+    /*srcPos++;*/
 
-    #define filterRowStore(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)         \
-        /* because the filter moves back and forth, we always have to reposition to 0 */ \
-        allCAdvNMULInStreamPointer(srcSkip##raw, fw.last, i);                            \
-                                                                                         \
-        /* horizontal stride, vertical store */                                          \
-        putTxNToPlane(1);                                                                \
-                                                                                         \
-        /*dstPos++;*/
+#define filterRowStore(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                               \
+    /* because the filter moves back and forth, we always have to reposition to 0 */                                                       \
+    allCAdvNMULInStreamPointer(srcSkip##raw, fw.last, i);                                                                                  \
+                                                                                                                                           \
+    /* horizontal stride, vertical store */                                                                                                \
+    putTxNToPlane(1);                                                                                                                      \
+                                                                                                                                           \
+    /*dstPos++;*/
 
-    #define filterRowExit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) \
-        allCAdvPADDInStreamPointer(orderedNum, i);
+#define filterRowExit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) allCAdvPADDInStreamPointer(orderedNum, i);
 
         if (parm->resample.operation == eWindowEvaluation_Sum)
         {
             loopEnter(tmprow, tmprows, orderedNum);
 
             {
-                filterVer(tmprow, srcrows, stridei,
-                    tmprow, dstrows, stridet, filterRowInit, filterRowNext, filterRowFetch, filterRowStore, filterRowExit, eWindowEvaluation_Sum, of);
+                filterVer(
+                    tmprow,
+                    srcrows,
+                    stridei,
+                    tmprow,
+                    dstrows,
+                    stridet,
+                    filterRowInit,
+                    filterRowNext,
+                    filterRowFetch,
+                    filterRowStore,
+                    filterRowExit,
+                    eWindowEvaluation_Sum,
+                    of);
             }
 
             loopLeave(tmprow, tmprows, orderedNum);
@@ -872,8 +943,20 @@ namespace ImageProcessingAtom
             loopEnter(tmprow, tmprows, orderedNum);
 
             {
-                filterVer(tmprow, srcrows, stridei,
-                    tmprow, dstrows, stridet, filterRowInit, filterRowNext, filterRowFetch, filterRowStore, filterRowExit, eWindowEvaluation_Max, of);
+                filterVer(
+                    tmprow,
+                    srcrows,
+                    stridei,
+                    tmprow,
+                    dstrows,
+                    stridet,
+                    filterRowInit,
+                    filterRowNext,
+                    filterRowFetch,
+                    filterRowStore,
+                    filterRowExit,
+                    eWindowEvaluation_Max,
+                    of);
             }
 
             loopLeave(tmprow, tmprows, orderedNum);
@@ -883,8 +966,20 @@ namespace ImageProcessingAtom
             loopEnter(tmprow, tmprows, orderedNum);
 
             {
-                filterVer(tmprow, srcrows, stridei,
-                    tmprow, dstrows, stridet, filterRowInit, filterRowNext, filterRowFetch, filterRowStore, filterRowExit, eWindowEvaluation_Min, of);
+                filterVer(
+                    tmprow,
+                    srcrows,
+                    stridei,
+                    tmprow,
+                    dstrows,
+                    stridet,
+                    filterRowInit,
+                    filterRowNext,
+                    filterRowFetch,
+                    filterRowStore,
+                    filterRowExit,
+                    eWindowEvaluation_Min,
+                    of);
             }
 
             loopLeave(tmprow, tmprows, orderedNum);
@@ -921,41 +1016,53 @@ namespace ImageProcessingAtom
          */
         allCAdvADDMOutStreamPointer(parm->region.outleft, parm->region.outtop, parm->outcols, o);
 
-    #define filterColInit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) \
-        allCInitSwappableOutPlaneReferences(parm->region.outleft, cstZero, parm->region.outtop, srcOffs, parm->outrows, o, false);
+#define filterColInit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                                \
+    allCInitSwappableOutPlaneReferences(parm->region.outleft, cstZero, parm->region.outtop, srcOffs, parm->outrows, o, false);
 
-    #define filterColNext(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) \
-        /* every in/out-put may swap */                                         \
-        allTInitFixedInPlaneReferences(srcOffs, parm->region.subtop + fw.first, -, i, t);
+#define filterColNext(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                                \
+    /* every in/out-put may swap */                                                                                                        \
+    allTInitFixedInPlaneReferences(srcOffs, parm->region.subtop + fw.first, -, i, t);
 
-    #define filterColFetch(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) \
-        /* vertical stride, horizontal fetch */                                  \
-        getTxNFromPlane(1);                                                      \
-                                                                                 \
-        /*srcPos++;*/
+#define filterColFetch(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                               \
+    /* vertical stride, horizontal fetch */                                                                                                \
+    getTxNFromPlane(1);                                                                                                                    \
+                                                                                                                                           \
+    /*srcPos++;*/
 
-    #define filterColStore(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) \
-        comcpyCCheckHiLo();                                                      \
-        comcpyCCoVar();                                                          \
-        comcpyCHistogram();                                                      \
-                                                                                 \
-        /* horizontal stride, vertical store */                                  \
-        /* putCxNToStreamSwapped(dstSkip, o); Expands to nothing */              \
-        putCxNToStream(dstSkip, o);                                              \
-        putCxNToPlane(1);                                                        \
-                                                                                 \
-        /*dstPos++;*/
+#define filterColStore(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                               \
+    comcpyCCheckHiLo();                                                                                                                    \
+    comcpyCCoVar();                                                                                                                        \
+    comcpyCHistogram();                                                                                                                    \
+                                                                                                                                           \
+    /* horizontal stride, vertical store */                                                                                                \
+    /* putCxNToStreamSwapped(dstSkip, o); Expands to nothing */                                                                            \
+    putCxNToStream(dstSkip, o);                                                                                                            \
+    putCxNToPlane(1);                                                                                                                      \
+                                                                                                                                           \
+    /*dstPos++;*/
 
-    #define filterColExit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip) \
-        allCAdvSSUBOutStreamPointer(dstSkip##raw, orderedShift, dstPos, o);
+#define filterColExit(srcOffs, srcSize, srcSkip, dstOffs, dstSize, dstSkip)                                                                \
+    allCAdvSSUBOutStreamPointer(dstSkip##raw, orderedShift, dstPos, o);
 
         if (parm->resample.operation == eWindowEvaluation_Sum)
         {
             loopEnter(dstrow, dstrows, orderedNum);
 
             {
-                filterHor(dstrow, srccols, stridet,
-                    dstrow, dstcols, strideo, filterColInit, filterColNext, filterColFetch, filterColStore, filterColExit, eWindowEvaluation_Sum, of);
+                filterHor(
+                    dstrow,
+                    srccols,
+                    stridet,
+                    dstrow,
+                    dstcols,
+                    strideo,
+                    filterColInit,
+                    filterColNext,
+                    filterColFetch,
+                    filterColStore,
+                    filterColExit,
+                    eWindowEvaluation_Sum,
+                    of);
             }
 
             loopLeave(dstrow, dstrows, orderedNum);
@@ -965,8 +1072,20 @@ namespace ImageProcessingAtom
             loopEnter(dstrow, dstrows, orderedNum);
 
             {
-                filterHor(dstrow, srccols, stridet,
-                    dstrow, dstcols, strideo, filterColInit, filterColNext, filterColFetch, filterColStore, filterColExit, eWindowEvaluation_Max, of);
+                filterHor(
+                    dstrow,
+                    srccols,
+                    stridet,
+                    dstrow,
+                    dstcols,
+                    strideo,
+                    filterColInit,
+                    filterColNext,
+                    filterColFetch,
+                    filterColStore,
+                    filterColExit,
+                    eWindowEvaluation_Max,
+                    of);
             }
 
             loopLeave(dstrow, dstrows, orderedNum);
@@ -976,8 +1095,20 @@ namespace ImageProcessingAtom
             loopEnter(dstrow, dstrows, orderedNum);
 
             {
-                filterHor(dstrow, srccols, stridet,
-                    dstrow, dstcols, strideo, filterColInit, filterColNext, filterColFetch, filterColStore, filterColExit, eWindowEvaluation_Min, of);
+                filterHor(
+                    dstrow,
+                    srccols,
+                    stridet,
+                    dstrow,
+                    dstcols,
+                    strideo,
+                    filterColInit,
+                    filterColNext,
+                    filterColFetch,
+                    filterColStore,
+                    filterColExit,
+                    eWindowEvaluation_Min,
+                    of);
             }
 
             loopLeave(dstrow, dstrows, orderedNum);
@@ -1082,10 +1213,19 @@ namespace ImageProcessingAtom
 
     /* #################################################################################################################### \
      */
-    void FilterImage(int filterIndex, int filterOp, float blurH, float blurV, const IImageObjectPtr srcImg, int srcMip,
-        IImageObjectPtr dstImg, int dstMip, QRect* srcRect, QRect* dstRect)
+    void FilterImage(
+        int filterIndex,
+        int filterOp,
+        float blurH,
+        float blurV,
+        const IImageObjectPtr srcImg,
+        int srcMip,
+        IImageObjectPtr dstImg,
+        int dstMip,
+        QRect* srcRect,
+        QRect* dstRect)
     {
-        //only support ePixelFormat_R32G32B32A32F
+        // only support ePixelFormat_R32G32B32A32F
         if (srcImg->GetPixelFormat() != ePixelFormat_R32G32B32A32F || dstImg->GetPixelFormat() != ePixelFormat_R32G32B32A32F)
         {
             AZ_Assert(false, "FilterImage only support both source and dest image objects have pixel format R32G32B32A32F");
@@ -1114,8 +1254,8 @@ namespace ImageProcessingAtom
             struct prcparm parm;
             memset(&parm, 0, sizeof(parm));
 
-            parm.incols  = srcWidth;
-            parm.inrows  = srcHeight;
+            parm.incols = srcWidth;
+            parm.inrows = srcHeight;
             parm.outcols = dstWidth;
             parm.outrows = dstHeight;
             parm.regional = false;
@@ -1126,26 +1266,26 @@ namespace ImageProcessingAtom
                 parm.regional = true;
                 parm.caged = true;
 
-                parm.region.inleft  = (!srcRect ? 0            :                  srcRect->left());
-                parm.region.intop   = (!srcRect ? 0            :                   srcRect->top());
-                parm.region.incols  = (!srcRect ? parm.incols  : srcRect->right() - srcRect->left());
-                parm.region.inrows  = (!srcRect ? parm.inrows  : srcRect->bottom() - srcRect->top());
+                parm.region.inleft = (!srcRect ? 0 : srcRect->left());
+                parm.region.intop = (!srcRect ? 0 : srcRect->top());
+                parm.region.incols = (!srcRect ? parm.incols : srcRect->right() - srcRect->left());
+                parm.region.inrows = (!srcRect ? parm.inrows : srcRect->bottom() - srcRect->top());
 
-                parm.region.outleft = (!dstRect ? 0            :                  dstRect->left());
-                parm.region.outtop  = (!dstRect ? 0            :                   dstRect->top());
+                parm.region.outleft = (!dstRect ? 0 : dstRect->left());
+                parm.region.outtop = (!dstRect ? 0 : dstRect->top());
                 parm.region.outcols = (!dstRect ? parm.outcols : dstRect->right() - dstRect->left());
                 parm.region.outrows = (!dstRect ? parm.outrows : dstRect->bottom() - dstRect->top());
 
                 if (!srcRect)
                 {
-                    parm.region.inleft  = parm.region.outleft * srcHeight / dstHeight;
-                    parm.region.intop   = parm.region.outtop  * srcWidth  / dstWidth;
+                    parm.region.inleft = parm.region.outleft * srcHeight / dstHeight;
+                    parm.region.intop = parm.region.outtop * srcWidth / dstWidth;
                 }
 
                 if (!dstRect)
                 {
                     parm.region.outleft = parm.region.inleft * dstHeight / srcHeight;
-                    parm.region.outtop  = parm.region.intop  * dstWidth  / srcWidth;
+                    parm.region.outtop = parm.region.intop * dstWidth / srcWidth;
                 }
             }
 
@@ -1268,22 +1408,149 @@ namespace ImageProcessingAtom
             return eWindowFunction_BlackmanHarris;
         case MipGenType::kaiserSinc:
             return eWindowFunction_KaiserSinc;
+        case MipGenType::alphaWeighted:
+            return eWindowFunction_Box;
         default:
             AZ_Assert(false, "unable find filter type for mipmap gen type %d", filterType);
             return eWindowFunction_BlackmanHarris;
         }
     }
 
-    /* #################################################################################################################### \
-    */
-    void FilterImage(MipGenType filterType, MipGenEvalType evalType, float blurH, float blurV, const IImageObjectPtr srcImg, int srcMip,
-        IImageObjectPtr dstImg, int dstMip, QRect* srcRect, QRect* dstRect)
+    void FilterImageAlphaWeighted(
+        const IImageObjectPtr srcImg, int srcMip, IImageObjectPtr dstImg, int dstMip, QRect* srcRect, QRect* dstRect)
     {
+        if (srcImg->GetPixelFormat() != ePixelFormat_R32G32B32A32F || dstImg->GetPixelFormat() != ePixelFormat_R32G32B32A32F)
+        {
+            AZ_Assert(false, "FilterImageAlphaWeighted only supports R32G32B32A32F format");
+            return;
+        }
+
+        uint32 srcWidth, srcHeight;
+        uint8* pSrcMem;
+        uint32 dwSrcPitch;
+        srcImg->GetImagePointer(srcMip, pSrcMem, dwSrcPitch);
+        srcWidth = srcImg->GetWidth(srcMip);
+        srcHeight = srcImg->GetHeight(srcMip);
+
+        uint32 dstWidth, dstHeight;
+        uint8* pDstMem;
+        uint32 dwDstPitch;
+        dstImg->GetImagePointer(dstMip, pDstMem, dwDstPitch);
+        dstWidth = dstImg->GetWidth(dstMip);
+        dstHeight = dstImg->GetHeight(dstMip);
+
+        uint32 srcLeft = 0, srcTop = 0, srcRight = srcWidth, srcBottom = srcHeight;
+        uint32 dstLeft = 0, dstTop = 0;
+        if (srcRect)
+        {
+            srcLeft = srcRect->left();
+            srcTop = srcRect->top();
+            srcRight = srcRect->right();
+            srcBottom = srcRect->bottom();
+        }
+        if (dstRect)
+        {
+            dstLeft = dstRect->left();
+            dstTop = dstRect->top();
+        }
+
+        uint32 srcRegionWidth = srcRight - srcLeft;
+        uint32 srcRegionHeight = srcBottom - srcTop;
+
+        for (uint32 dy = 0; dy < dstHeight; dy++)
+        {
+            for (uint32 dx = 0; dx < dstWidth; dx++)
+            {
+                uint32 sx0 = srcLeft + (dx * srcRegionWidth) / dstWidth;
+                uint32 sx1 = srcLeft + ((dx + 1) * srcRegionWidth) / dstWidth;
+                uint32 sy0 = srcTop + (dy * srcRegionHeight) / dstHeight;
+                uint32 sy1 = srcTop + ((dy + 1) * srcRegionHeight) / dstHeight;
+
+                if (sx1 <= sx0)
+                {
+                    sx1 = sx0 + 1;
+                }
+                if (sy1 <= sy0)
+                {
+                    sy1 = sy0 + 1;
+                }
+                if (sx1 > srcRight)
+                {
+                    sx1 = srcRight;
+                }
+                if (sy1 > srcBottom)
+                {
+                    sy1 = srcBottom;
+                }
+
+                float rSum = 0.0f, gSum = 0.0f, bSum = 0.0f, aSum = 0.0f;
+                float weightSum = 0.0f;
+                uint32 count = 0;
+
+                for (uint32 sy = sy0; sy < sy1; sy++)
+                {
+                    for (uint32 sx = sx0; sx < sx1; sx++)
+                    {
+                        const float* pSrc = reinterpret_cast<const float*>(pSrcMem + sy * dwSrcPitch) + sx * 4;
+                        float a = pSrc[3];
+                        float weight = (a > 0.0f) ? a : 0.0001f;
+                        rSum += pSrc[0] * weight;
+                        gSum += pSrc[1] * weight;
+                        bSum += pSrc[2] * weight;
+                        aSum += a;
+                        weightSum += weight;
+                        count++;
+                    }
+                }
+
+                if (count == 0)
+                {
+                    continue;
+                }
+
+                float* pDst = reinterpret_cast<float*>(pDstMem + (dy + dstTop) * dwDstPitch) + (dx + dstLeft) * 4;
+                if (weightSum > 0.0f)
+                {
+                    pDst[0] = rSum / weightSum;
+                    pDst[1] = gSum / weightSum;
+                    pDst[2] = bSum / weightSum;
+                }
+                else
+                {
+                    pDst[0] = rSum / count;
+                    pDst[1] = gSum / count;
+                    pDst[2] = bSum / count;
+                }
+                pDst[3] = aSum / count;
+            }
+        }
+    }
+
+    /* #################################################################################################################### \
+     */
+    void FilterImage(
+        MipGenType filterType,
+        MipGenEvalType evalType,
+        float blurH,
+        float blurV,
+        const IImageObjectPtr srcImg,
+        int srcMip,
+        IImageObjectPtr dstImg,
+        int dstMip,
+        QRect* srcRect,
+        QRect* dstRect)
+    {
+        if (filterType == MipGenType::alphaWeighted)
+        {
+            FilterImageAlphaWeighted(srcImg, srcMip, dstImg, dstMip, srcRect, dstRect);
+            return;
+        }
+
         int filterIndex = MipGenTypeToFilterIndex(filterType);
         int filterOp = static_cast<int>(evalType);
         FilterImage(filterIndex, filterOp, blurH, blurV, srcImg, srcMip, dstImg, dstMip, srcRect, dstRect);
     }
-}
+} // namespace ImageProcessingAtom
 
 AZ_POP_DISABLE_WARNING_GCC
 AZ_POP_DISABLE_WARNING_CLANG

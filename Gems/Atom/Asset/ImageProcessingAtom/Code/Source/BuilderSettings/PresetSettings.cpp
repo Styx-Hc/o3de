@@ -51,20 +51,17 @@ namespace ImageProcessingAtom
                 ->Field("Swizzle", &PresetSettings::m_swizzle)
                 ->Field("CubemapSettings", &PresetSettings::m_cubemapSetting)
                 ->Field("MipMapSetting", &PresetSettings::m_mipmapSetting)
-                ->Field("OutputTypeHandling", &PresetSettings::m_outputTypeHandling)
-                ;
+                ->Field("OutputTypeHandling", &PresetSettings::m_outputTypeHandling);
 
             serialize->Enum<RGBWeight>()
                 ->Value("Uniform", RGBWeight::uniform)
                 ->Value("Luminance", RGBWeight::luminance)
-                ->Value("CIEXYZ", RGBWeight::ciexyz)
-                ;
+                ->Value("CIEXYZ", RGBWeight::ciexyz);
 
             serialize->Enum<ColorSpace>()
                 ->Value("Linear", ColorSpace::linear)
                 ->Value("sRGB", ColorSpace::sRGB)
-                ->Value("Auto", ColorSpace::autoSelect)
-                ;
+                ->Value("Auto", ColorSpace::autoSelect);
 
             serialize->Enum<CubemapFilterType>()
                 ->Value("Disc", CubemapFilterType::disc)
@@ -72,8 +69,7 @@ namespace ImageProcessingAtom
                 ->Value("Cosine", CubemapFilterType::cosine)
                 ->Value("Gaussian", CubemapFilterType::gaussian)
                 ->Value("CosinePower", CubemapFilterType::cosine_power)
-                ->Value("GGX", CubemapFilterType::ggx)
-                ;
+                ->Value("GGX", CubemapFilterType::ggx);
 
             serialize->Enum<MipGenType>()
                 ->Value("Point", MipGenType::point)
@@ -83,7 +79,7 @@ namespace ImageProcessingAtom
                 ->Value("Gaussian", MipGenType::gaussian)
                 ->Value("BlackmanHarris", MipGenType::blackmanHarris)
                 ->Value("KaiserSinc", MipGenType::kaiserSinc)
-                ;
+                ->Value("AlphaWeighted", MipGenType::alphaWeighted);
 
             serialize->Enum<EPixelFormat>()
                 ->Value("R8G8B8A8", EPixelFormat::ePixelFormat_R8G8B8A8)
@@ -93,7 +89,7 @@ namespace ImageProcessingAtom
                 ->Value("A8", EPixelFormat::ePixelFormat_A8)
                 ->Value("R16G16B16A16", EPixelFormat::ePixelFormat_R16G16B16A16)
                 ->Value("R16G16", EPixelFormat::ePixelFormat_R16G16)
-                ->Value("R16", EPixelFormat::ePixelFormat_R16)                    
+                ->Value("R16", EPixelFormat::ePixelFormat_R16)
                 ->Value("ASTC_4x4", EPixelFormat::ePixelFormat_ASTC_4x4)
                 ->Value("ASTC_5x4", EPixelFormat::ePixelFormat_ASTC_5x4)
                 ->Value("ASTC_5x5", EPixelFormat::ePixelFormat_ASTC_5x5)
@@ -130,17 +126,15 @@ namespace ImageProcessingAtom
                 ->Value("R8G8B8", EPixelFormat::ePixelFormat_R8G8B8)
                 ->Value("B8G8R8", EPixelFormat::ePixelFormat_B8G8R8)
                 ->Value("R32", EPixelFormat::ePixelFormat_R32)
-                ->Value("Unknown", EPixelFormat::ePixelFormat_Unknown)
-                ;
+                ->Value("Unknown", EPixelFormat::ePixelFormat_Unknown);
 
             serialize->Enum<OutputTypeHandling>()
                 ->Value("Default", OutputTypeHandling::UseSpecifiedOutputType)
-                ->Value("UseInputFormat", OutputTypeHandling::UseInputFormat)
-                ;
+                ->Value("UseInputFormat", OutputTypeHandling::UseInputFormat);
         }
     }
 
-    PresetSettings& PresetSettings::operator= (const PresetSettings& other)
+    PresetSettings& PresetSettings::operator=(const PresetSettings& other)
     {
         DeepCopyMembers(other);
         return *this;
@@ -186,30 +180,16 @@ namespace ImageProcessingAtom
         {
             arePointersEqual = false;
         }
-        return
-            arePointersEqual &&
-            m_uuid == other.m_uuid &&
-            m_name == other.m_name &&
-            m_description == other.m_description &&
-            m_generateIBLOnly == other.m_generateIBLOnly &&
-            m_rgbWeight == other.m_rgbWeight &&
-            m_srcColorSpace == other.m_srcColorSpace &&
-            m_destColorSpace == other.m_destColorSpace &&
-            m_fileMasks == other.m_fileMasks &&
-            m_suppressEngineReduce == other.m_suppressEngineReduce &&
-            m_pixelFormat == other.m_pixelFormat &&
-            m_pixelFormatAlpha == other.m_pixelFormatAlpha &&
-            m_discardAlpha == other.m_discardAlpha &&
-            m_minTextureSize == other.m_minTextureSize &&
-            m_maxTextureSize == other.m_maxTextureSize &&
-            m_isPowerOf2 == other.m_isPowerOf2 &&
-            m_sizeReduceLevel == other.m_sizeReduceLevel &&
-            m_glossFromNormals == other.m_glossFromNormals &&
-            m_swizzle == other.m_swizzle &&
-            m_isMipRenormalize == other.m_isMipRenormalize &&
-            m_numResidentMips == other.m_numResidentMips &&
-            m_outputTypeHandling == other.m_outputTypeHandling
-            ;
+        return arePointersEqual && m_uuid == other.m_uuid && m_name == other.m_name && m_description == other.m_description &&
+            m_generateIBLOnly == other.m_generateIBLOnly && m_rgbWeight == other.m_rgbWeight && m_srcColorSpace == other.m_srcColorSpace &&
+            m_destColorSpace == other.m_destColorSpace && m_fileMasks == other.m_fileMasks &&
+            m_suppressEngineReduce == other.m_suppressEngineReduce && m_pixelFormat == other.m_pixelFormat &&
+            m_pixelFormatAlpha == other.m_pixelFormatAlpha && m_discardAlpha == other.m_discardAlpha &&
+            m_minTextureSize == other.m_minTextureSize && m_maxTextureSize == other.m_maxTextureSize &&
+            m_isPowerOf2 == other.m_isPowerOf2 && m_sizeReduceLevel == other.m_sizeReduceLevel &&
+            m_glossFromNormals == other.m_glossFromNormals && m_swizzle == other.m_swizzle &&
+            m_isMipRenormalize == other.m_isMipRenormalize && m_numResidentMips == other.m_numResidentMips &&
+            m_outputTypeHandling == other.m_outputTypeHandling;
     }
 
     void PresetSettings::DeepCopyMembers(const PresetSettings& other)
@@ -273,11 +253,10 @@ namespace ImageProcessingAtom
             serializeContext->Class<MultiplatformPresetSettings>()
                 ->Version(1)
                 ->Field("DefaultPreset", &MultiplatformPresetSettings::m_defaultPreset)
-                ->Field("PlatformsPresets", &MultiplatformPresetSettings::m_presets)
-                ;
+                ->Field("PlatformsPresets", &MultiplatformPresetSettings::m_presets);
         }
     }
-    
+
     const PresetSettings* MultiplatformPresetSettings::GetPreset(const PlatformName& platform) const
     {
         auto itr = m_presets.find(platform);
@@ -287,12 +266,12 @@ namespace ImageProcessingAtom
         }
         return &m_defaultPreset;
     }
-        
+
     const PresetSettings& MultiplatformPresetSettings::GetDefaultPreset() const
     {
         return m_defaultPreset;
     }
-    
+
     void MultiplatformPresetSettings::ClearPlatformPresets()
     {
         m_presets.clear();
@@ -302,7 +281,7 @@ namespace ImageProcessingAtom
     {
         m_defaultPreset = preset;
     }
-    
+
     void MultiplatformPresetSettings::SetPresetForPlatform(const PresetSettings& preset, const PlatformName& platform)
     {
         AZ_Assert(!platform.empty(), "Platform string shouldn't be empty");
@@ -311,7 +290,7 @@ namespace ImageProcessingAtom
             m_presets[platform] = preset;
         }
     }
-    
+
     void MultiplatformPresetSettings::SetPresetName(const PresetName& name)
     {
         m_defaultPreset.m_name = name;

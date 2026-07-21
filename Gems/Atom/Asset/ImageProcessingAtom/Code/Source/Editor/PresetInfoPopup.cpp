@@ -7,10 +7,10 @@
  */
 
 #include "PresetInfoPopup.h"
-#include <Source/Editor/ui_PresetInfoPopup.h>
 #include <BuilderSettings/PresetSettings.h>
 #include <QLabel>
 #include <QString>
+#include <Source/Editor/ui_PresetInfoPopup.h>
 
 namespace ImageProcessingAtomEditor
 {
@@ -32,8 +32,9 @@ namespace ImageProcessingAtomEditor
 
     static const char* MipGenTypeToString(MipGenType mipGenType)
     {
-        static const char* mipGenTypeNames[] = { "Point", "Box", "Triangle", "Quadratic", "Gaussian", "BlackmanHarris", "KaiserSinc" };
-        AZ_Assert(mipGenType <= MipGenType::kaiserSinc, "Invalid MipGenType!");
+        static const char* mipGenTypeNames[] = { "Point",          "Box",        "Triangle",     "Quadratic", "Gaussian",
+                                                 "BlackmanHarris", "KaiserSinc", "AlphaWeighted" };
+        AZ_Assert(mipGenType <= MipGenType::alphaWeighted, "Invalid MipGenType!");
         return mipGenTypeNames[(int)mipGenType];
     }
 
@@ -51,7 +52,7 @@ namespace ImageProcessingAtomEditor
         int i = 0;
         for (const auto& filemask : fileMasks)
         {
-            conventionText +=  i > 0 && i < fileMasks.size() ? " " + filemask : filemask;
+            conventionText += i > 0 && i < fileMasks.size() ? " " + filemask : filemask;
             i++;
         }
 
@@ -86,7 +87,9 @@ namespace ImageProcessingAtomEditor
         presetInfoText += QString("RGB Weight: %1\n").arg(RGBWeightToString(presetSettings->m_rgbWeight));
         presetInfoText += QString("Source ColorSpace: %1\n").arg(ColorSpaceToString(presetSettings->m_srcColorSpace));
         presetInfoText += QString("Destination ColorSpace: %1\n").arg(ColorSpaceToString(presetSettings->m_destColorSpace));
-        presetInfoText += QString("FileMasks: %1\n").arg(FileMasksToString(BuilderSettingManager::Instance()->GetFileMasksForPreset(presetSettings->m_name)).c_str());
+        presetInfoText +=
+            QString("FileMasks: %1\n")
+                .arg(FileMasksToString(BuilderSettingManager::Instance()->GetFileMasksForPreset(presetSettings->m_name)).c_str());
         presetInfoText += QString("Suppress Engine Reduce: %1\n").arg(presetSettings->m_suppressEngineReduce ? "True" : "False");
         presetInfoText += QString("Discard Alpha: %1\n").arg(presetSettings->m_discardAlpha ? "True" : "False");
         presetInfoText += QString("Gloss From Normal: %1\n").arg(presetSettings->m_glossFromNormals);
@@ -101,11 +104,14 @@ namespace ImageProcessingAtomEditor
             presetInfoText += QString("Mip Angle: %1\n").arg(presetSettings->m_cubemapSetting->m_mipAngle);
             presetInfoText += QString("Mip Slope: %1\n").arg(presetSettings->m_cubemapSetting->m_mipSlope);
             presetInfoText += QString("Edge Fixup: %1\n").arg(presetSettings->m_cubemapSetting->m_edgeFixup);
-            presetInfoText += QString("Generate IBL Specular: %1\n").arg(presetSettings->m_cubemapSetting->m_generateIBLSpecular ? "True" : "False");
+            presetInfoText +=
+                QString("Generate IBL Specular: %1\n").arg(presetSettings->m_cubemapSetting->m_generateIBLSpecular ? "True" : "False");
             presetInfoText += QString("IBL Specular Preset: %1\n").arg(presetSettings->m_cubemapSetting->m_iblSpecularPreset.GetCStr());
-            presetInfoText += QString("Generate IBL Diffuse: %1\n").arg(presetSettings->m_cubemapSetting->m_generateIBLDiffuse ? "True" : "False");
+            presetInfoText +=
+                QString("Generate IBL Diffuse: %1\n").arg(presetSettings->m_cubemapSetting->m_generateIBLDiffuse ? "True" : "False");
             presetInfoText += QString("IBL Diffuse Preset: %1\n").arg(presetSettings->m_cubemapSetting->m_iblDiffusePreset.GetCStr());
-            presetInfoText += QString("Requires Convolve: %1\n").arg(presetSettings->m_cubemapSetting->m_requiresConvolve ? "True" : "False");
+            presetInfoText +=
+                QString("Requires Convolve: %1\n").arg(presetSettings->m_cubemapSetting->m_requiresConvolve ? "True" : "False");
             presetInfoText += QString("SubId: %1\n").arg(presetSettings->m_cubemapSetting->m_subId);
         }
 
@@ -116,7 +122,7 @@ namespace ImageProcessingAtomEditor
         }
 
         m_ui->infoLabel->setText(presetInfoText);
-        
+
         resize(minimumSizeHint());
     }
-}//namespace ImageProcessingAtomEditor
+} // namespace ImageProcessingAtomEditor

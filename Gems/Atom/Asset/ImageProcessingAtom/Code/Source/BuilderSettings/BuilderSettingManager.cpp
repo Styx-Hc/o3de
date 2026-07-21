@@ -6,7 +6,6 @@
  *
  */
 
-
 #include "BuilderSettingManager.h"
 #include <QCoreApplication>
 #include <QDirIterator>
@@ -18,25 +17,25 @@
 #include <BuilderSettings/CubemapSettings.h>
 #include <BuilderSettings/TextureSettings.h>
 #include <Converters/Cubemap.h>
+#include <ImageLoader/ImageLoaders.h>
+#include <ImageProcessing_Traits_Platform.h>
 #include <Processing/ImageToProcess.h>
 #include <Processing/PixelFormatInfo.h>
 #include <Processing/Utils.h>
-#include <ImageLoader/ImageLoaders.h>
-#include <ImageProcessing_Traits_Platform.h>
 
 #include <AssetBuilderSDK/AssetBuilderSDK.h>
 
 #include <AzCore/IO/Path/Path.h>
 #include <AzCore/Math/Sha1.h>
 #include <AzCore/Serialization/Json/JsonSerialization.h>
-#include <AzCore/Serialization/SerializeContext.h>
 #include <AzCore/Serialization/ObjectStream.h>
+#include <AzCore/Serialization/SerializeContext.h>
 #include <AzCore/Serialization/Utils.h>
 #include <AzCore/std/smart_ptr/make_shared.h>
 #include <AzCore/std/string/string.h>
+#include <AzFramework/Application/Application.h>
 #include <AzFramework/IO/LocalFileIO.h>
 #include <AzFramework/StringFunc/StringFunc.h>
-#include <AzFramework/Application/Application.h>
 #include <AzToolsFramework/API/EditorAssetSystemAPI.h>
 
 #include <AzCore/Serialization/Json/JsonUtils.h>
@@ -56,20 +55,32 @@ namespace ImageProcessingAtom
     }
 
 #if defined(AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS)
-#define AZ_RESTRICTED_PLATFORM_EXPANSION(CodeName, CODENAME, codename, PrivateName, PRIVATENAME, privatename, PublicName, PUBLICNAME, publicname, PublicAuxName1, PublicAuxName2, PublicAuxName3) \
-    namespace ImageProcess##PrivateName                                                                                                                                                           \
-    {                                                                                                                                                                                             \
-        bool DoesSupport(AZStd::string);                                                                                                                                                          \
+#define AZ_RESTRICTED_PLATFORM_EXPANSION(                                                                                                  \
+    CodeName,                                                                                                                              \
+    CODENAME,                                                                                                                              \
+    codename,                                                                                                                              \
+    PrivateName,                                                                                                                           \
+    PRIVATENAME,                                                                                                                           \
+    privatename,                                                                                                                           \
+    PublicName,                                                                                                                            \
+    PUBLICNAME,                                                                                                                            \
+    publicname,                                                                                                                            \
+    PublicAuxName1,                                                                                                                        \
+    PublicAuxName2,                                                                                                                        \
+    PublicAuxName3)                                                                                                                        \
+    namespace ImageProcess##PrivateName                                                                                                    \
+    {                                                                                                                                      \
+        bool DoesSupport(AZStd::string);                                                                                                   \
     }
     AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS
 #undef AZ_RESTRICTED_PLATFORM_EXPANSION
-#endif //AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS
+#endif // AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS
 
     const char* BuilderSettingManager::s_environmentVariableName = "ImageBuilderSettingManager_Atom";
     AZ::EnvironmentVariable<BuilderSettingManager*> BuilderSettingManager::s_globalInstance = nullptr;
     AZStd::mutex BuilderSettingManager::s_instanceMutex;
     const PlatformName BuilderSettingManager::s_defaultPlatform = AZ_TRAIT_IMAGEPROCESSING_DEFAULT_PLATFORM;
-    
+
     void BuilderSettingManager::Reflect(AZ::ReflectContext* context)
     {
         AZ::SerializeContext* serialize = azrtti_cast<AZ::SerializeContext*>(context);
@@ -120,7 +131,7 @@ namespace ImageProcessingAtom
             s_globalInstance.Set(aznew BuilderSettingManager());
         }
     }
-    
+
     void BuilderSettingManager::DestroyInstance()
     {
         AZStd::lock_guard<AZStd::mutex> lock(s_instanceMutex);
@@ -130,8 +141,9 @@ namespace ImageProcessingAtom
         delete s_globalInstance.Get();
         s_globalInstance.Reset();
     }
-    
-    const PresetSettings* BuilderSettingManager::GetPreset(const PresetName& presetName, const PlatformName& platform, AZStd::string_view* settingsFilePathOut) const
+
+    const PresetSettings* BuilderSettingManager::GetPreset(
+        const PresetName& presetName, const PlatformName& platform, AZStd::string_view* settingsFilePathOut) const
     {
         AZStd::lock_guard<AZStd::recursive_mutex> lock(m_presetMapLock);
         auto itr = m_presets.find(presetName);
@@ -149,9 +161,9 @@ namespace ImageProcessingAtom
     AZStd::vector<AZStd::string> BuilderSettingManager::GetFileMasksForPreset(const PresetName& presetName) const
     {
         AZStd::vector<AZStd::string> fileMasks;
-        
+
         AZStd::lock_guard<AZStd::recursive_mutex> lock(m_presetMapLock);
-        for (const auto& mapping:m_presetFilterMap)
+        for (const auto& mapping : m_presetFilterMap)
         {
             for (const auto& preset : mapping.second)
             {
@@ -190,7 +202,7 @@ namespace ImageProcessingAtom
         return platforms;
     }
 
-    const AZStd::map <FileMask, AZStd::unordered_set<PresetName>>& BuilderSettingManager::GetPresetFilterMap() const
+    const AZStd::map<FileMask, AZStd::unordered_set<PresetName>>& BuilderSettingManager::GetPresetFilterMap() const
     {
         AZStd::lock_guard<AZStd::recursive_mutex> lock(m_presetMapLock);
         return m_presetFilterMap;
@@ -233,8 +245,7 @@ namespace ImageProcessingAtom
         auto fileIoBase = AZ::IO::FileIOBase::GetInstance();
         if (fileIoBase == nullptr)
         {
-            return AZ::Failure(
-                AZStd::string("File IO instance needs to be initialized to resolve ImageProcessing builder file aliases"));
+            return AZ::Failure(AZStd::string("File IO instance needs to be initialized to resolve ImageProcessing builder file aliases"));
         }
 
         if (auto defaultConfigFolder = fileIoBase->ResolvePath(s_defaultConfigFolder); defaultConfigFolder.has_value())
@@ -250,12 +261,12 @@ namespace ImageProcessingAtom
 
         AZStd::lock_guard<AZStd::recursive_mutex> lock(m_presetMapLock);
         ClearSettings();
-        
+
         outcome = LoadSettings();
-        
+
         if (outcome.IsSuccess())
         {
-            // Load presets in default folder first, then load from project folder. 
+            // Load presets in default folder first, then load from project folder.
             // The same presets which loaded last will overwrite previous loaded one.
             LoadPresets(m_defaultConfigFolder.Native());
             LoadPresets(m_projectConfigFolder.Native());
@@ -264,7 +275,6 @@ namespace ImageProcessingAtom
         // Collect extra file masks from preset files
         CollectFileMasksFromPresets();
 
-        
         if (QCoreApplication::instance())
         {
             m_fileWatcher.reset(new QFileSystemWatcher);
@@ -296,7 +306,7 @@ namespace ImageProcessingAtom
 
     bool BuilderSettingManager::LoadPreset(const AZStd::string& filePath)
     {
-        QFileInfo fileInfo (filePath.c_str());
+        QFileInfo fileInfo(filePath.c_str());
 
         if (!fileInfo.exists())
         {
@@ -307,20 +317,23 @@ namespace ImageProcessingAtom
         auto result = AZ::JsonSerializationUtils::LoadObjectFromFile(preset, filePath);
         if (!result.IsSuccess())
         {
-            AZ_Warning(LogWindow, false, "Failed to load preset file %s. Error: %s",
-                filePath.c_str(), result.GetError().c_str());
+            AZ_Warning(LogWindow, false, "Failed to load preset file %s. Error: %s", filePath.c_str(), result.GetError().c_str());
             return false;
         }
 
         PresetName presetName(fileInfo.baseName().toUtf8().data());
 
-        AZ_Warning(LogWindow, presetName == preset.GetPresetName(), "Preset file name '%s' is not"
+        AZ_Warning(
+            LogWindow,
+            presetName == preset.GetPresetName(),
+            "Preset file name '%s' is not"
             " same as preset name '%s'. Using preset file name as preset name",
-            filePath.c_str(), preset.GetPresetName().GetCStr());
+            filePath.c_str(),
+            preset.GetPresetName().GetCStr());
 
         preset.SetPresetName(presetName);
 
-        m_presets[presetName] = PresetEntry{preset, filePath.c_str(), fileInfo.lastModified()};
+        m_presets[presetName] = PresetEntry{ preset, filePath.c_str(), fileInfo.lastModified() };
         return true;
     }
 
@@ -328,23 +341,23 @@ namespace ImageProcessingAtom
     {
         // Find the preset file from project or default config folder
         AZStd::string presetFileName = AZStd::string::format("%s.%s", presetName.GetCStr(), s_presetFileExtension);
-        AZ::IO::FixedMaxPath filePath = m_projectConfigFolder/presetFileName;
-        QFileInfo fileInfo (filePath.c_str());
+        AZ::IO::FixedMaxPath filePath = m_projectConfigFolder / presetFileName;
+        QFileInfo fileInfo(filePath.c_str());
         if (!fileInfo.exists())
         {
-            filePath = (m_defaultConfigFolder/presetFileName).c_str();
+            filePath = (m_defaultConfigFolder / presetFileName).c_str();
             fileInfo = QFileInfo(filePath.c_str());
         }
-        
+
         AZStd::lock_guard<AZStd::recursive_mutex> lock(m_presetMapLock);
 
-        //Skip the loading if the file wasn't chagned
+        // Skip the loading if the file wasn't chagned
         if (fileInfo.exists())
         {
             if (m_presets.find(presetName) != m_presets.end())
             {
-                if (m_presets[presetName].m_lastModifiedTime == fileInfo.lastModified()
-                    && m_presets[presetName].m_presetFilePath == filePath.c_str())
+                if (m_presets[presetName].m_lastModifiedTime == fileInfo.lastModified() &&
+                    m_presets[presetName].m_presetFilePath == filePath.c_str())
                 {
                     return;
                 }
@@ -365,8 +378,8 @@ namespace ImageProcessingAtom
         AZStd::lock_guard<AZStd::recursive_mutex> lock(m_presetMapLock);
 
         // Load builder settings
-        AZStd::string settingFilePath = AZStd::string::format("%.*s%s",  aznumeric_cast<int>(configFolder.size()), 
-            configFolder.data(), s_builderSettingFileName);
+        AZStd::string settingFilePath =
+            AZStd::string::format("%.*s%s", aznumeric_cast<int>(configFolder.size()), configFolder.data(), s_builderSettingFileName);
         auto result = LoadSettings(settingFilePath);
 
         // Load presets
@@ -383,17 +396,23 @@ namespace ImageProcessingAtom
         // reported deprecated attributes in image builder settings
         if (!m_analysisFingerprint.empty())
         {
-            AZ_Warning(LogWindow, false, "'AnalysisFingerprint' is deprecated and it should be removed from file [%s]", s_builderSettingFileName);
+            AZ_Warning(
+                LogWindow, false, "'AnalysisFingerprint' is deprecated and it should be removed from file [%s]", s_builderSettingFileName);
         }
         if (!m_defaultPresetByFileMask.empty())
         {
-            AZ_Warning(LogWindow, false, "'DefaultPresetsByFileMask' is deprecated and it should be removed from file [%s]. Use PresetsByFileMask instead", s_builderSettingFileName);
+            AZ_Warning(
+                LogWindow,
+                false,
+                "'DefaultPresetsByFileMask' is deprecated and it should be removed from file [%s]. Use PresetsByFileMask instead",
+                s_builderSettingFileName);
         }
     }
 
     StringOutcome BuilderSettingManager::LoadSettings()
     {
-        // If the project image build setting file exist, it will merge image builder settings from project folder to the settings from default config folder.
+        // If the project image build setting file exist, it will merge image builder settings from project folder to the settings from
+        // default config folder.
         bool needMerge = false;
         AZStd::string projectSettingFile{ (m_projectConfigFolder / s_builderSettingFileName).Native() };
 
@@ -436,9 +455,8 @@ namespace ImageProcessingAtom
                     {
                         return STRING_OUTCOME_ERROR(outcome.GetError());
                     }
-                    
-                    ReportDeprecatedSettings();
 
+                    ReportDeprecatedSettings();
 
                     // Generate config file fingerprint
                     outStream.Seek(0, AZ::IO::GenericStream::ST_SEEK_BEGIN);
@@ -448,7 +466,11 @@ namespace ImageProcessingAtom
                 else
                 {
                     needMerge = false;
-                    AZ_Warning(LogWindow, false, "Failed to fully merge data into image builder settings. Skipping project build setting file [%s]", projectSettingFile.c_str());
+                    AZ_Warning(
+                        LogWindow,
+                        false,
+                        "Failed to fully merge data into image builder settings. Skipping project build setting file [%s]",
+                        projectSettingFile.c_str());
                 }
             }
             else
@@ -486,21 +508,33 @@ namespace ImageProcessingAtom
             return STRING_OUTCOME_ERROR(result.GetError());
         }
 
-        //enable builder settings for enabled restricted platforms. These settings should be disabled by default in the setting file
+        // enable builder settings for enabled restricted platforms. These settings should be disabled by default in the setting file
 #if defined(AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS)
-#define AZ_RESTRICTED_PLATFORM_EXPANSION(CodeName, CODENAME, codename, PrivateName, PRIVATENAME, privatename, PublicName, PUBLICNAME, publicname, PublicAuxName1, PublicAuxName2, PublicAuxName3) \
-    for (auto& buildSetting : m_builderSettings)                                                                                                                                                  \
-    {                                                                                                                                                                                             \
-        if (ImageProcess##PrivateName::DoesSupport(buildSetting.first))                                                                                                                           \
-        {                                                                                                                                                                                         \
-            buildSetting.second.m_enablePlatform = true;                                                                                                                                          \
-            break;                                                                                                                                                                                \
-        }                                                                                                                                                                                         \
+#define AZ_RESTRICTED_PLATFORM_EXPANSION(                                                                                                  \
+    CodeName,                                                                                                                              \
+    CODENAME,                                                                                                                              \
+    codename,                                                                                                                              \
+    PrivateName,                                                                                                                           \
+    PRIVATENAME,                                                                                                                           \
+    privatename,                                                                                                                           \
+    PublicName,                                                                                                                            \
+    PUBLICNAME,                                                                                                                            \
+    publicname,                                                                                                                            \
+    PublicAuxName1,                                                                                                                        \
+    PublicAuxName2,                                                                                                                        \
+    PublicAuxName3)                                                                                                                        \
+    for (auto& buildSetting : m_builderSettings)                                                                                           \
+    {                                                                                                                                      \
+        if (ImageProcess##PrivateName::DoesSupport(buildSetting.first))                                                                    \
+        {                                                                                                                                  \
+            buildSetting.second.m_enablePlatform = true;                                                                                   \
+            break;                                                                                                                         \
+        }                                                                                                                                  \
     }
-    AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS
+        AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS
 #undef AZ_RESTRICTED_PLATFORM_EXPANSION
-#endif //AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS
-        
+#endif // AZ_TOOLS_EXPAND_FOR_RESTRICTED_PLATFORMS
+
         return STRING_OUTCOME_SUCCESS;
     }
 
@@ -508,8 +542,7 @@ namespace ImageProcessingAtom
     {
         AZ::JsonSerializerSettings saveSettings;
         saveSettings.m_keepDefaults = true;
-        auto result = AZ::JsonSerializationUtils::SaveObjectToFile(this, filepath,
-            (BuilderSettingManager*)nullptr, &saveSettings);
+        auto result = AZ::JsonSerializationUtils::SaveObjectToFile(this, filepath, (BuilderSettingManager*)nullptr, &saveSettings);
         if (!result.IsSuccess())
         {
             return STRING_OUTCOME_ERROR(result.GetError());
@@ -528,38 +561,50 @@ namespace ImageProcessingAtom
         AZStd::lock_guard<AZStd::recursive_mutex> lock(m_presetMapLock);
 
         AZStd::string noFilter = AZStd::string();
-        
+
         AZStd::string extraString;
 
         for (const auto& presetIter : m_presets)
         {
             const MultiplatformPresetSettings& multiPreset = presetIter.second.m_multiPreset;
             const PresetSettings& preset = multiPreset.GetDefaultPreset();
-            
-            //Put into no filter preset list
+
+            // Put into no filter preset list
             m_presetFilterMap[noFilter].insert(preset.m_name);
 
-            //Put into file mask preset list if any
+            // Put into file mask preset list if any
             for (const PlatformName& filemask : preset.m_fileMasks)
             {
                 if (filemask.empty() || filemask[0] != FileMaskDelimiter)
                 {
-                    AZ_Warning(LogWindow, false, "File mask '%s' is invalid. It must start with '%c'.", filemask.c_str(), FileMaskDelimiter);
+                    AZ_Warning(
+                        LogWindow, false, "File mask '%s' is invalid. It must start with '%c'.", filemask.c_str(), FileMaskDelimiter);
                     continue;
                 }
                 else if (filemask.size() < 2)
                 {
-                    AZ_Warning(LogWindow, false, "File mask '%s' is invalid. The '%c' must be followed by at least one other character.", filemask.c_str());
+                    AZ_Warning(
+                        LogWindow,
+                        false,
+                        "File mask '%s' is invalid. The '%c' must be followed by at least one other character.",
+                        filemask.c_str());
                     continue;
                 }
                 else if (filemask.find(FileMaskDelimiter, 1) != AZStd::string::npos)
                 {
-                    AZ_Warning(LogWindow, false, "File mask '%s' is invalid. It must contain only a single '%c' character.", filemask.c_str(), FileMaskDelimiter);
+                    AZ_Warning(
+                        LogWindow,
+                        false,
+                        "File mask '%s' is invalid. It must contain only a single '%c' character.",
+                        filemask.c_str(),
+                        FileMaskDelimiter);
                     continue;
                 }
                 else if (filemask.find(AZ_FILESYSTEM_EXTENSION_SEPARATOR) != AZStd::string::npos)
                 {
-                    AZ_Warning(LogWindow, false,
+                    AZ_Warning(
+                        LogWindow,
+                        false,
                         "File mask '%s' is invalid. It must not contain a file extension separator ('%c').",
                         filemask.c_str(),
                         AZ_FILESYSTEM_EXTENSION_SEPARATOR);
@@ -584,8 +629,8 @@ namespace ImageProcessingAtom
         // Determine if we have a meta file
         AZ::IO::LocalFileIO fileIO;
 
-        AZStd::string settingFilePath = AZStd::string::format("%.*s%s", aznumeric_cast<int>(imagePath.size()),
-            imagePath.data(), TextureSettings::ExtensionName);
+        AZStd::string settingFilePath =
+            AZStd::string::format("%.*s%s", aznumeric_cast<int>(imagePath.size()), imagePath.data(), TextureSettings::ExtensionName);
         if (fileIO.Exists(settingFilePath.c_str()))
         {
             metafilePath = settingFilePath;
@@ -597,7 +642,7 @@ namespace ImageProcessingAtom
 
     AZStd::string BuilderSettingManager::GetFileMask(AZStd::string_view imageFilePath) const
     {
-        //get file name
+        // get file name
         QString lowerFileName = imageFilePath.data();
         lowerFileName = lowerFileName.toLower();
 
@@ -606,7 +651,7 @@ namespace ImageProcessingAtom
         // of '_filemask' that is returned from this method.
         AZStd::string fileName(QFileInfo(lowerFileName).baseName().toUtf8());
 
-        //get the substring from last '_'
+        // get the substring from last '_'
         size_t lastUnderScore = fileName.find_last_of(FileMaskDelimiter);
         if (lastUnderScore != AZStd::string::npos)
         {
@@ -656,13 +701,12 @@ namespace ImageProcessingAtom
     {
         PresetName emptyPreset;
 
-
-        //get file mask of this image file
+        // get file mask of this image file
         AZStd::string fileMask = GetFileMask(imageFilePath);
 
         PresetName outPreset = emptyPreset;
 
-        //use the preset filter map to find
+        // use the preset filter map to find
         if (outPreset.IsEmpty() && !fileMask.empty())
         {
             auto& presetFilterMap = GetPresetFilterMap();
@@ -673,14 +717,24 @@ namespace ImageProcessingAtom
         }
 
         if (outPreset == emptyPreset)
-        {        
+        {
             auto image = IImageObjectPtr(LoadImageFromFile(imageFilePath));
-            if (image && ((image->GetAlphaContent() == EAlphaContent::eAlphaContent_Absent
-                || image->GetAlphaContent() == EAlphaContent::eAlphaContent_OnlyWhite)))
+            if (image &&
+                ((image->GetAlphaContent() == EAlphaContent::eAlphaContent_Absent ||
+                  image->GetAlphaContent() == EAlphaContent::eAlphaContent_OnlyWhite)))
             {
                 outPreset = m_defaultPreset;
             }
             else
+            {
+                outPreset = m_defaultPresetAlpha;
+            }
+        }
+        else if (outPreset == m_defaultPreset)
+        {
+            auto image = IImageObjectPtr(LoadImageFromFile(imageFilePath));
+            if (image && image->GetAlphaContent() != EAlphaContent::eAlphaContent_Absent &&
+                image->GetAlphaContent() != EAlphaContent::eAlphaContent_OnlyWhite)
             {
                 outPreset = m_defaultPresetAlpha;
             }
@@ -707,7 +761,7 @@ namespace ImageProcessingAtom
 
         return false;
     }
-    
+
     void BuilderSettingManager::SavePresets(AZStd::string_view outputFolder)
     {
         for (const auto& element : m_presets)
@@ -717,20 +771,30 @@ namespace ImageProcessingAtom
             AZStd::string filePath;
             if (!AzFramework::StringFunc::Path::Join(outputFolder.data(), fileName.c_str(), filePath))
             {
-                AZ_Warning(LogWindow, false, "Failed to construct path with folder '%.*s' and file: '%s' to save preset",
-                    aznumeric_cast<int>(outputFolder.size()), outputFolder.data(), filePath.c_str());
+                AZ_Warning(
+                    LogWindow,
+                    false,
+                    "Failed to construct path with folder '%.*s' and file: '%s' to save preset",
+                    aznumeric_cast<int>(outputFolder.size()),
+                    outputFolder.data(),
+                    filePath.c_str());
                 continue;
             }
             auto result = AZ::JsonSerializationUtils::SaveObjectToFile(&presetEntry.m_multiPreset, filePath);
             if (!result.IsSuccess())
             {
-                AZ_Warning(LogWindow, false, "Failed to save preset '%s' to file '%s'. Error: %s", 
-                    presetEntry.m_multiPreset.GetDefaultPreset().m_name.GetCStr(), filePath.c_str(), result.GetError().c_str());
+                AZ_Warning(
+                    LogWindow,
+                    false,
+                    "Failed to save preset '%s' to file '%s'. Error: %s",
+                    presetEntry.m_multiPreset.GetDefaultPreset().m_name.GetCStr(),
+                    filePath.c_str(),
+                    result.GetError().c_str());
             }
         }
     }
 
-    void BuilderSettingManager::OnFileChanged(const QString &path)
+    void BuilderSettingManager::OnFileChanged(const QString& path)
     {
         // handles preset file change
         // Note: this signal only works with AP but not AssetBuilder
@@ -738,16 +802,16 @@ namespace ImageProcessingAtom
         QFileInfo info(path);
 
         // skip if the file is not a preset file
-        // Note: for .settings file change it's handled when restart AP. 
+        // Note: for .settings file change it's handled when restart AP.
         if (info.suffix() != s_presetFileExtension)
         {
             return;
         }
-        
+
         ReloadPreset(PresetName(info.baseName().toUtf8().data()));
     }
-    
-    void BuilderSettingManager::OnFolderChanged([[maybe_unused]] const QString &path)
+
+    void BuilderSettingManager::OnFolderChanged([[maybe_unused]] const QString& path)
     {
         // handles new file added or removed
         // Note: this signal only works with AP but not AssetBuilder
