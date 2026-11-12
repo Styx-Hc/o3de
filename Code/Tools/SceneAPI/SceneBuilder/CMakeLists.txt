@@ -45,7 +45,7 @@ ly_add_target(
         PUBLIC
             ../..
     BUILD_DEPENDENCIES
-        PUBLIC
+        PRIVATE
             AZ::SceneBuilder.Static
         PRIVATE
             AZ::AzCore
@@ -66,6 +66,7 @@ if(PAL_TRAIT_BUILD_TESTS_SUPPORTED)
             PRIVATE
                 AZ::AzTest
                 AZ::SceneBuilder
+                AZ::SceneBuilder.Static
     )
     ly_add_googletest(
         NAME AZ::SceneBuilder.Tests

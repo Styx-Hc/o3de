@@ -11,6 +11,7 @@
 #include <SceneAPI/SceneCore/Events/ManifestMetaInfoBus.h>
 #include <SceneAPI/SceneCore/Events/AssetImportRequest.h>
 #include <AzCore/Memory/Memory.h>
+#include <AzCore/std/containers/vector.h>
 
 namespace EMotionFX
 {
@@ -52,6 +53,15 @@ namespace EMotionFX
                 AZ::SceneAPI::Events::ProcessingResult UpdateMotionGroupBehaviors(AZ::SceneAPI::Containers::Scene& scene) const;
 
                 bool SceneHasMotionGroup(const AZ::SceneAPI::Containers::Scene& scene) const;
+
+                // Collects the animation data set names (animation node names) that uniformly
+                // cover every bone of the scene graph. Returns an empty vector when the bones are
+                // not uniformly covered or when fewer than two distinct sets exist.
+                static AZStd::vector<AZStd::string> CollectUniformAnimationSetNames(const AZ::SceneAPI::Containers::Scene& scene);
+
+                // Makes an animation clip name safe to use as the motion group name (the exported
+                // motion file is named after the group).
+                static AZStd::string SanitizeMotionName(const AZStd::string& name);
 
                 static constexpr int s_motionGroupPreferredTabOrder{ 2 };
             };

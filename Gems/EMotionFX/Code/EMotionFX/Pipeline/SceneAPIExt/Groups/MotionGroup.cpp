@@ -76,6 +76,16 @@ namespace EMotionFX
                 m_selectedRootBone = selectedRootBone;
             }
 
+            const AZStd::string& MotionGroup::GetSelectedAnimationName() const
+            {
+                return m_selectedAnimationName;
+            }
+
+            void MotionGroup::SetSelectedAnimationName(const AZStd::string& selectedAnimationName)
+            {
+                m_selectedAnimationName = selectedAnimationName;
+            }
+
             const AZStd::string& MotionGroup::GetName() const
             {
                 return m_name;
@@ -91,9 +101,12 @@ namespace EMotionFX
 
                 serializeContext->Class<IMotionGroup, AZ::SceneAPI::DataTypes::IGroup>()->Version(1);
 
-                serializeContext->Class<MotionGroup, IMotionGroup>()->Version(6, VersionConverter)
+                // Version 7: added the selected animation name, used to pick one of multiple
+                // animation data sets (clips) of a scene file.
+                serializeContext->Class<MotionGroup, IMotionGroup>()->Version(7, VersionConverter)
                     ->Field("name", &MotionGroup::m_name)
                     ->Field("selectedRootBone", &MotionGroup::m_selectedRootBone)
+                    ->Field("selectedAnimationName", &MotionGroup::m_selectedAnimationName)
                     ->Field("id", &MotionGroup::m_id)
                     ->Field("rules", &MotionGroup::m_rules);
 

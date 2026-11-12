@@ -1,0 +1,28 @@
+{
+    "gem_name": "UniversalSceneImporter",
+    "version": "1.0.0",
+    "display_name": "Universal Scene Importer",
+    "license": "Apache-2.0 Or MIT",
+    "license_url": "https://github.com/o3de/o3de/blob/development/LICENSE.txt",
+    "origin": "UniversalSceneImporter contributors",
+    "origin_url": "https://codeberg.org/system_v/ImporterGems",
+    "type": "Tool",
+    "summary": "Imports FBX, glTF and GLB scene files through the SceneAPI Scene Builder using the ufbx and cgltf libraries.",
+    "canonical_tags": [
+        "Gem"
+    ],
+    "user_tags": [
+        "Assets",
+        "Tools",
+        "Scene",
+        "FBX",
+        "glTF"
+    ],
+    "icon_path": "preview.png",
+    "requirements": "None. ufbx and cgltf are vendored inside the gem, no third party package is downloaded.",
+    "documentation_url": "https://codeberg.org/system_v/ImporterGems",
+    "dependencies": [
+        "SceneProcessing"
+    ],
+    "provided_unique_service": "SceneImporter"
+}

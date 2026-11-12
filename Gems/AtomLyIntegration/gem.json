@@ -27,7 +27,6 @@
         "AtomViewportDisplayInfo",
         "CommonFeaturesAtom",
         "EditorModeFeedback",
-        "EMotionFX_Atom",
         "ImguiAtom"
     ],
     "external_subdirectories": [

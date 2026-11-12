@@ -49,7 +49,6 @@ if (PAL_TRAIT_BUILD_HOST_TOOLS)
                 AZ::SceneCore
                 AZ::SceneData
                 AZ::AzFramework
-                AZ::SceneBuilder
                 AZ::AssetBuilderSDK
     )
 
@@ -71,6 +70,7 @@ if (PAL_TRAIT_BUILD_HOST_TOOLS)
         RUNTIME_DEPENDENCIES
             AZ::SceneCore
             AZ::SceneData
+            AZ::SceneBuilder
             AZ::SceneUI
     )
 

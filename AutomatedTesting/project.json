@@ -26,6 +26,7 @@
         "DevTextures",
         "DiffuseProbeGrid",
         "EMotionFX",
+        "EMotionFX_Atom",
         "EditorModeFeedback",
         "EditorPythonBindings",
         "ExpressionEvaluation",

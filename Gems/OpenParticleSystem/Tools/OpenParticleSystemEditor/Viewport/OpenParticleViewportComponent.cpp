@@ -91,8 +91,6 @@ namespace OpenParticleSystemEditor
 
     void OpenParticleViewportComponent::ReloadContent()
     {
-        AZ_TracePrintf("OpenParticle Editor", "Started loading viewport configurations.\n");
-
         OpenParticleViewportNotificationBus::Broadcast(&OpenParticleViewportNotificationBus::Events::OnBeginReloadContent);
 
         const AZStd::string selectedLightingPresetNameOld = m_viewportSettings->m_selectedLightingPresetName;
@@ -136,7 +134,6 @@ namespace OpenParticleSystemEditor
                         const AZStd::string displayName = AtomToolsFramework::GetDisplayNameFromPath(sourcePath);
                         m_lightingPresetDisplayNameMap[displayName] = presetPtr;
                         m_lightingPresetNameSet.insert(displayName);
-                        AZ_TracePrintf("OpenParticle Editor", "Loaded viewport configuration: %s.\n", info.m_relativePath.c_str());
                     }
                 }
             }
@@ -148,7 +145,7 @@ namespace OpenParticleSystemEditor
 
         OpenParticleViewportNotificationBus::Broadcast(&OpenParticleViewportNotificationBus::Events::OnEndReloadContent);
 
-        AZ_TracePrintf("OpenParticle Editor", "Finished loading viewport configurations.\n");
+        AZ_TracePrintf("OpenParticle Editor", "Loaded %zu viewport configurations.\n", m_lightingPresetVector.size());
     }
 
     AZ::Render::LightingPresetPtr OpenParticleViewportComponent::AddLightingPreset(const AZ::Render::LightingPreset& preset)

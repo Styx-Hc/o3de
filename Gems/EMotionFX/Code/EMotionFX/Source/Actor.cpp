@@ -1222,6 +1222,18 @@ namespace EMotionFX
             AllocateNodeMirrorInfos();
         }
 
+        bool hasMirrorPairing = false;
+        for (size_t i = 0; i < m_nodeMirrorInfos.size() && !hasMirrorPairing; ++i)
+        {
+            const uint16 sourceNode = m_nodeMirrorInfos[i].m_sourceNode;
+            hasMirrorPairing = (sourceNode != static_cast<uint16>(i) && sourceNode < static_cast<uint16>(m_nodeMirrorInfos.size()));
+        }
+        if (!hasMirrorPairing)
+        {
+            MatchNodeMotionSourcesByNames();
+            MatchNodeMotionSourcesGeometrical();
+        }
+
         // auto detect mirror axes
         if(GetHasMirrorAxesDetected() == false)
         {
@@ -1609,15 +1621,104 @@ namespace EMotionFX
     }
 
 
+    namespace
+    {
+        // A left/right marker in a node name is a standalone L/R character or a Left/Right word.
+        bool IsAsciiLetter(char c)
+        {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        }
+
+        // Replace the first occurrence of 'from' with 'to', ignoring case; returns false when the name does not contain it.
+        bool ReplaceWord(const AZStd::string& name, const char* from, const char* to, AZStd::string& outName)
+        {
+            const size_t position = AZ::StringFunc::Find(name, from);
+            if (position == AZStd::string::npos)
+            {
+                return false;
+            }
+
+            outName = name;
+            outName.erase(position, AZStd::string(from).size());
+            outName.insert(position, to);
+            return true;
+        }
+    }
+
+
+    // pair the nodes whose names only differ in their left/right marker
+    void Actor::MatchNodeMotionSourcesByNames()
+    {
+        const uint16 numNodes = static_cast<uint16>(m_skeleton->GetNumNodes());
+
+        for (uint16 i = 0; i < numNodes; ++i)
+        {
+            const AZStd::string name = m_skeleton->GetNode(i)->GetName();
+
+            // Swap every standalone L/R character in the name, as well as a Left/Right word, and look
+            // for a node with the resulting name.
+            AZStd::vector<AZStd::string> candidates;
+            for (size_t c = 0; c < name.size(); ++c)
+            {
+                const char marker = name[c];
+                const bool isMarker = (marker == 'L' || marker == 'l' || marker == 'R' || marker == 'r');
+                const bool letterBefore = (c > 0 && IsAsciiLetter(name[c - 1]));
+                const bool letterAfter = (c + 1 < name.size() && IsAsciiLetter(name[c + 1]));
+                if (!isMarker || letterBefore || letterAfter)
+                {
+                    continue;
+                }
+
+                AZStd::string twin = name;
+                twin[c] = (marker == 'L' || marker == 'l') ? 'R' : 'L';
+                candidates.push_back(twin);
+            }
+
+            AZStd::string twin;
+            if (ReplaceWord(name, "left", "right", twin) || ReplaceWord(name, "right", "left", twin))
+            {
+                candidates.push_back(twin);
+            }
+
+            for (const AZStd::string& candidate : candidates)
+            {
+                uint16 twinIndex = MCORE_INVALIDINDEX16;
+                for (uint16 j = 0; j < numNodes; ++j)
+                {
+                    if (j != i && AZ::StringFunc::Equal(m_skeleton->GetNode(j)->GetName(), candidate.c_str()))
+                    {
+                        twinIndex = j;
+                        break;
+                    }
+                }
+
+                if (twinIndex != MCORE_INVALIDINDEX16)
+                {
+                    MapNodeMotionSource(i, twinIndex);
+                    break;
+                }
+            }
+        }
+    }
+
+
     // try to geometrically match left with right nodes
     void Actor::MatchNodeMotionSourcesGeometrical()
     {
         Pose pose;
+        pose.LinkToActor(this);
         pose.InitFromBindPose(this);
 
         const uint16 numNodes = static_cast<uint16>(m_skeleton->GetNumNodes());
         for (uint16 i = 0; i < numNodes; ++i)
         {
+            // Keep a pairing that is already established, for example the one from the node names.
+            const uint16 sourceNode = m_nodeMirrorInfos[i].m_sourceNode;
+            if (!m_nodeMirrorInfos.empty() && sourceNode != i && sourceNode < numNodes)
+            {
+                continue;
+            }
+
             // find the best match
             const uint16 bestIndex = FindBestMirrorMatchForNode(i, pose);
 

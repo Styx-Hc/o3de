@@ -1,0 +1,22 @@
+{
+    "O3DE":
+    {
+        "SceneAPI":
+        {
+            // Source file extensions imported by the UniversalSceneImporter gem. The Scene Builder
+            // reads this list to create asset builder job patterns and the Asset Processor uses it
+            // to register the ".assetinfo" metadata types. Remove an entry to stop importing that
+            // format. If this object or the array is missing, the gem falls back to all three
+            // formats it was built for.
+            "ImportProviderFileTypeExtensions":
+            {
+                "UniversalSceneImporter":
+                [
+                    ".fbx",
+                    ".gltf",
+                    ".glb"
+                ]
+            }
+        }
+    }
+}

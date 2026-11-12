@@ -12,6 +12,7 @@
 #include <AzCore/Component/ComponentApplicationBus.h>
 #include <AzCore/std/containers/vector.h>
 #include <AzCore/Module/Environment.h>
+#include <SceneAPI/SceneBuilder/ImportContextRegistryComponent.h>
 #include <SceneAPI/SceneBuilder/SceneImportRequestHandler.h>
 
 #include <SceneAPI/SceneBuilder/SceneImporter.h>
@@ -34,6 +35,7 @@ namespace AZ
                     // Global importer and behavior
                     g_componentDescriptors.push_back(SceneBuilder::SceneImporter::CreateDescriptor());
                     g_componentDescriptors.push_back(SceneImportRequestHandler::CreateDescriptor());
+                    g_componentDescriptors.push_back(ImportContextRegistryComponent::CreateDescriptor());
 
                     for (AZ::ComponentDescriptor* descriptor : g_componentDescriptors)
                     {

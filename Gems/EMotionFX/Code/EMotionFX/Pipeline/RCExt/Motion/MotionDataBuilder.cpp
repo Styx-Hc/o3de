@@ -34,6 +34,7 @@
 #include <AzCore/Math/Uuid.h>
 #include <AzCore/Math/Quaternion.h>
 #include <AzCore/std/containers/array.h>
+#include <AzCore/StringFunc/StringFunc.h>
 #include <AzToolsFramework/Debug/TraceContext.h>
 
 namespace EMotionFX
@@ -206,6 +207,11 @@ namespace EMotionFX
             const char* rootBoneName = motionGroup.GetSelectedRootBone().c_str();
             AZ_TraceContext("Root bone", rootBoneName);
 
+            // When the motion group selects a named animation set (multi-clip import), only the
+            // animation data nodes with that name are exported by this motion. When empty, the
+            // first animation data node of each bone is used (single-clip importers such as AssImp).
+            const AZStd::string& selectedAnimationName = motionGroup.GetSelectedAnimationName();
+
             const SceneContainers::SceneGraph& graph = context.m_scene.GetGraph();
 
             SceneContainers::SceneGraph::NodeIndex rootBoneNodeIndex = graph.Find(rootBoneName);
@@ -274,16 +280,41 @@ namespace EMotionFX
                     rootJointDataIndex = motionData->AddJoint(nodeName, Transform::CreateIdentity(), Transform::CreateIdentity());
                 }
 
-                // Currently only get the first (one) AnimationData
-                auto childView = SceneViews::MakeSceneGraphChildView<SceneViews::AcceptEndPointsOnly>(graph, graph.ConvertToNodeIndex(it.GetHierarchyIterator()),
-                        graph.GetContentStorage().begin(), true);
-                auto result = AZStd::find_if(childView.begin(), childView.end(), SceneContainers::DerivedTypeFilter<SceneDataTypes::IAnimationData>());
-                if (result == childView.end())
+                // Get the animation data of this bone. With a selected animation set, pick the
+                // animation data node with that name; otherwise use the first one found.
+                const SceneDataTypes::IAnimationData* animation = nullptr;
+                if (selectedAnimationName.empty())
                 {
-                    continue;
+                    // Currently only get the first (one) AnimationData
+                    auto childView = SceneViews::MakeSceneGraphChildView<SceneViews::AcceptEndPointsOnly>(graph, graph.ConvertToNodeIndex(it.GetHierarchyIterator()),
+                            graph.GetContentStorage().begin(), true);
+                    auto result = AZStd::find_if(childView.begin(), childView.end(), SceneContainers::DerivedTypeFilter<SceneDataTypes::IAnimationData>());
+                    if (result == childView.end())
+                    {
+                        continue;
+                    }
+                    animation = azrtti_cast<const SceneDataTypes::IAnimationData*>(result->get());
                 }
-
-                const SceneDataTypes::IAnimationData* animation = azrtti_cast<const SceneDataTypes::IAnimationData*>(result->get());
+                else
+                {
+                    auto childView = SceneViews::MakeSceneGraphChildView<SceneViews::AcceptEndPointsOnly>(graph, graph.ConvertToNodeIndex(it.GetHierarchyIterator()),
+                            nameContentView.begin(), true);
+                    for (auto childIt = childView.begin(); childIt != childView.end(); ++childIt)
+                    {
+                        if (childIt->second &&
+                            childIt->second->RTTI_IsTypeOf(SceneDataTypes::IAnimationData::TYPEINFO_Uuid()) &&
+                            childIt->first.GetName() == selectedAnimationName)
+                        {
+                            animation = azrtti_cast<const SceneDataTypes::IAnimationData*>(childIt->second.get());
+                            break;
+                        }
+                    }
+                    if (!animation)
+                    {
+                        // This bone has no animation data in the selected animation set.
+                        continue;
+                    }
+                }
                 const size_t jointDataIndex = motionData->AddJoint(nodeName, Transform::CreateIdentity(), Transform::CreateIdentity());
 
                 // Keep track of the sample joint index.
@@ -447,6 +478,17 @@ namespace EMotionFX
                 {
                     if (currentItem->RTTI_IsTypeOf(SceneDataTypes::IBlendShapeAnimationData::TYPEINFO_Uuid()))
                     {
+                        // When a named animation set is selected, only include the blend shape
+                        // animations that belong to it. Importers name the blend shape animation
+                        // nodes "<animation set name>_<blend shape name>".
+                        if (!selectedAnimationName.empty())
+                        {
+                            const AZStd::string setNamePrefix = selectedAnimationName + "_";
+                            if (!AZ::StringFunc::StartsWith(iterator->first.GetName(), setNamePrefix.c_str(), true))
+                            {
+                                continue;
+                            }
+                        }
                         const SceneDataTypes::IBlendShapeAnimationData* blendShapeAnimationData = static_cast<const SceneDataTypes::IBlendShapeAnimationData*>(currentItem.get());
 
                         const size_t morphDataIndex = motionData->AddMorph(blendShapeAnimationData->GetBlendShapeName(), 0.0f);

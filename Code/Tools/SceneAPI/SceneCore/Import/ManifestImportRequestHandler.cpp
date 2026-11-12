@@ -8,6 +8,7 @@
 
 #include <AzCore/Serialization/SerializeContext.h>
 #include <AzCore/IO/FileIO.h>
+#include <AzCore/IO/Path/Path.h>
 #include <AzCore/IO/SystemFile.h>
 #include <AzCore/IO/GenericStreams.h>
 #include <AzCore/Memory/SystemAllocator.h>
@@ -92,9 +93,13 @@ namespace AZ
 
                     AZ::StringFunc::Path::GetFolderPath(altManifestFolder.c_str(), altManifestFolder);
 
-                    AZStd::string generatedAssetInfoPath;
-                    AZ::StringFunc::Path::Join(assetCacheRoot.c_str(), altManifestFolder.c_str(), generatedAssetInfoPath);
-                    AZ::StringFunc::Path::ConstructFull(generatedAssetInfoPath.c_str(), filename.c_str(), generatedAssetInfoPath);
+                    if (AZ::IO::PathView(altManifestFolder.c_str()).IsAbsolute())
+                    {
+                        return Events::LoadingResult::Ignored;
+                    }
+
+                    const AZStd::string generatedAssetInfoPath =
+                        (AZ::IO::Path(assetCacheRoot.c_str()) / altManifestFolder.c_str() / filename.c_str()).String();
 
                     if (!AZ::IO::FileIOBase::GetInstance()->Exists(generatedAssetInfoPath.c_str()))
                     {

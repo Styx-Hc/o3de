@@ -26,11 +26,15 @@ namespace AZ
                 const AZStd::string originalNodeName(name);
 
                 bool isNameUpdated = false;
+                // Replacing the path separator is routine normalization; warnings are reserved for
+                // missing names and names that still collide after normalization.
+                bool isNameInvalidOrConflicting = false;
                 // Nodes can't have an empty name, except of the root, otherwise nodes can't be referenced.
                 if (name.empty())
                 {
                     name = defaultName;
                     isNameUpdated = true;
+                    isNameInvalidOrConflicting = true;
                 }
 
                 // The scene graph uses an arbitrary character (by default dot) to separate the names of the parents
@@ -63,13 +67,26 @@ namespace AZ
                     name += AZStd::to_string(aznumeric_cast<u64>(index));
                     index++;
                     isNameUpdated = true;
+                    isNameInvalidOrConflicting = true;
                 }
 
                 if (isNameUpdated)
                 {
                     AZ_TraceContext("New node name", name);
-                    AZ_TracePrintf(Utilities::WarningWindow, "The name of the node '%s' was invalid or conflicting and was updated to '%s'.",
-                        originalNodeName.c_str(), name.c_str());
+                    if (isNameInvalidOrConflicting)
+                    {
+                        AZ_TracePrintf(
+                            Utilities::WarningWindow,
+                            "The name of the node '%s' was invalid or conflicting and was updated to '%s'.",
+                            originalNodeName.c_str(), name.c_str());
+                    }
+                    else
+                    {
+                        AZ_TracePrintf(
+                            Utilities::LogWindow,
+                            "The name of the node '%s' contained the scene graph separator and was normalized to '%s'.",
+                            originalNodeName.c_str(), name.c_str());
+                    }
                 }
 
                 return isNameUpdated;

@@ -24,6 +24,7 @@
 #include <SceneAPI/SceneCore/Components/Utilities/EntityConstructor.h>
 #include <SceneAPI/SceneCore/Containers/Scene.h>
 #include <SceneAPI/SceneCore/Containers/SceneManifest.h>
+#include <SceneAPI/SceneCore/DataTypes/Groups/IImportGroup.h>
 #include <SceneAPI/SceneCore/Events/AssetImportRequest.h>
 #include <SceneAPI/SceneCore/Events/GenerateEventContext.h>
 #include <SceneAPI/SceneCore/Events/ExportProductList.h>
@@ -103,8 +104,35 @@ namespace SceneBuilder
             {
                 m_cachedFingerprint.append(element);
             }
+
+            // Global import preferences affect scene products but are not source-file dependencies.
+            // Include them so changing a project setting schedules the affected scenes again.
+            bool optimizeScene = false;
+            bool optimizeMeshes = false;
+            bool extractEmbeddedTextures = false;
+            if (AZ::SettingsRegistryInterface* settingsRegistry = AZ::SettingsRegistry::Get())
+            {
+                const AZStd::string settingsPath = AZ::SceneAPI::DataTypes::IImportGroup::SceneImportSettingsRegistryKey;
+                settingsRegistry->Get(
+                    optimizeScene, AZStd::string::format("%s/OptimizeScene", settingsPath.c_str()));
+                settingsRegistry->Get(
+                    optimizeMeshes, AZStd::string::format("%s/OptimizeMeshes", settingsPath.c_str()));
+                settingsRegistry->Get(
+                    extractEmbeddedTextures, AZStd::string::format("%s/ExtractEmbeddedTextures", settingsPath.c_str()));
+            }
+            m_cachedFingerprint.append(AZStd::string::format(
+                "[SceneImportSettings:%d:%d:%d]",
+                static_cast<int>(optimizeScene),
+                static_cast<int>(optimizeMeshes),
+                static_cast<int>(extractEmbeddedTextures)));
+
             // A general catch all version fingerprint. Update this to force all source scene (FBX, GLTF, STL) files to recompile.
-            m_cachedFingerprint.append("Version 5");
+            // Version 6: texture resolution now verifies that referenced textures exist and skips stale absolute paths.
+            // Version 7 includes global import settings so a preference change reprocesses scene sources.
+            // Version 8: OzzAnimation skeleton bake now reads node transforms from the graph the
+            // same way the model builder does (transform attribute children), fixing all-identity
+            // rest poses and inverse bind matrices.
+            m_cachedFingerprint.append("Version 8");
         }
 
         return m_cachedFingerprint.c_str();

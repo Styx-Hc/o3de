@@ -12,6 +12,7 @@ set(FILES
     Tests/ActorFixture.cpp
     Tests/ActorFixture.h
     Tests/ActorInstanceCommandTests.cpp
+    Tests/ActorMirrorTests.cpp
     Tests/AdditiveMotionSamplingTests.cpp
     Tests/AnimAudioComponentTests.cpp
     Tests/AnimGraphActionTests.cpp

@@ -47,6 +47,9 @@ namespace EMotionFX
                 const AZStd::string& GetSelectedRootBone() const override;
                 void SetSelectedRootBone(const AZStd::string& selectedRootBone)  override;
 
+                const AZStd::string& GetSelectedAnimationName() const override;
+                void SetSelectedAnimationName(const AZStd::string& selectedAnimationName) override;
+
                 // IGroup overrides
                 const AZStd::string& GetName() const override;
 
@@ -57,6 +60,7 @@ namespace EMotionFX
                 AZ::SceneAPI::Containers::RuleContainer   m_rules;
                 AZStd::string                             m_name;
                 AZStd::string                             m_selectedRootBone;
+                AZStd::string                             m_selectedAnimationName;
                 AZ::Uuid                                  m_id;
             };
         }

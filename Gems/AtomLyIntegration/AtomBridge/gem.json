@@ -24,7 +24,6 @@
         "AtomImGuiTools",
         "AtomRenderOptions",
         "CommonFeaturesAtom",
-        "EMotionFX_Atom",
         "ImguiAtom",
         "AtomFont",
         "AtomViewportDisplayInfo",

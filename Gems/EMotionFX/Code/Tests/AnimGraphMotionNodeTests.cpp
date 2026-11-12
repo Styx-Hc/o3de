@@ -102,19 +102,12 @@ namespace EMotionFX
 
         bool PositionsAreMirrored(const AZ::Vector3& leftPos, const AZ::Vector3& rightPos, float tolerance)
         {
-            if (!AZ::IsClose(leftPos.GetX(), AZ::GetAbs(rightPos.GetX()), tolerance))
-            {
-                return false;
-            }
-            if (!AZ::IsClose(leftPos.GetY(), rightPos.GetY(), tolerance))
-            {
-                return false;
-            }
-            if (!AZ::IsClose(leftPos.GetZ(), rightPos.GetZ(), tolerance))
-            {
-                return false;
-            }
-            return true;
+            // The mirror plane is the YZ plane, so the mirrored position has a negated X
+            // coordinate; taking the absolute value of one of them hides whether the rig has
+            // its left side at positive or negative X.
+            return AZ::IsClose(leftPos.GetX(), -rightPos.GetX(), tolerance) &&
+                AZ::IsClose(leftPos.GetY(), rightPos.GetY(), tolerance) &&
+                AZ::IsClose(leftPos.GetZ(), rightPos.GetZ(), tolerance);
         }
 
     protected:
@@ -262,7 +255,7 @@ namespace EMotionFX
         }
     };
 
-    TEST_F(AnimGraphMotionNodeFixture, DISABLED_NoInputAndMirrorMotionOutputsCorrectMotionAndPose)
+    TEST_F(AnimGraphMotionNodeFixture, NoInputAndMirrorMotionOutputsCorrectMotionAndPose)
     {
         AnimGraphMotionNode::UniqueData* uniqueData = static_cast<AnimGraphMotionNode::UniqueData*>(m_animGraphInstance->FindOrCreateUniqueNodeData(m_motionNode));
         uniqueData->m_reload = true;
@@ -279,8 +272,11 @@ namespace EMotionFX
         const AZ::Vector3 r_ankleCurrentPos = m_jackPose->GetModelSpaceTransform(m_rAnkleIndex).m_position;
 
         m_motionNode->SetMirrorMotion(true);
+        // The play properties only reach the motion instance when the motion is (re)started,
+        // so restart and advance by the same amount as above, to sample the mirrored pose at
+        // the same point of the animation as the unmirrored one.
         uniqueData->m_reload = true;
-        GetEMotionFX().Update(0.0001f);
+        GetEMotionFX().Update(1.0f);
 
         EXPECT_TRUE(m_motionNode->GetMirrorMotion()) << "Mirror motion effect should be on.";
 

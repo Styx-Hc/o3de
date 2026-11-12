@@ -56,7 +56,6 @@ ly_add_target(
         Gem::Atom_Component_DebugCamera
         Gem::AtomImGuiTools
         Gem::CommonFeaturesAtom
-        Gem::EMotionFX_Atom
         Gem::ImguiAtom
         Gem::AtomFont
         Gem::AtomViewportDisplayInfo
@@ -97,7 +96,6 @@ ly_add_target(
         Gem::Atom_Component_DebugCamera
         Gem::AtomImGuiTools
         Gem::CommonFeaturesAtom
-        Gem::EMotionFX_Atom
         Gem::ImguiAtom
         Gem::AtomFont
         Gem::AtomViewportDisplayInfo
@@ -152,7 +150,6 @@ if(PAL_TRAIT_BUILD_HOST_TOOLS)
             Gem::AtomImGuiTools
             Gem::AtomRenderOptions.Editor
             Gem::CommonFeaturesAtom.Editor
-            Gem::EMotionFX_Atom.Editor
             Gem::ImageProcessingAtom.Editor
             Gem::ImguiAtom
             Gem::AtomFont

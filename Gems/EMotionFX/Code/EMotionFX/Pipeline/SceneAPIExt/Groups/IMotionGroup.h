@@ -31,6 +31,15 @@ namespace EMotionFX
                 virtual const AZStd::string& GetSelectedRootBone() const = 0;
 
                 virtual void SetSelectedRootBone(const AZStd::string& selectedRootBone) = 0;
+
+                // Ability to select which animation data set of the scene this motion group exports.
+                // Importers that support multiple animation clips per file name their animation
+                // data nodes after the clip; a motion group with a non-empty selected animation
+                // name exports only the animation data nodes with that name. When empty, the
+                // first animation data node found on each bone is used (single-clip behavior).
+                virtual const AZStd::string& GetSelectedAnimationName() const = 0;
+
+                virtual void SetSelectedAnimationName(const AZStd::string& selectedAnimationName) = 0;
             };
         }
     }

@@ -613,6 +613,14 @@ namespace EMotionFX
         uint16 FindBestMatchForNode(const char* nodeName, const char* subStringA, const char* subStringB, bool firstPass = true) const;
 
         void MatchNodeMotionSourcesGeometrical();
+        /**
+         * Pair the nodes whose names only differ in their left/right marker, for example "hand_L"
+         * and "hand_R" or "Left Hand" and "Right Hand". Imported rigs name their bones this way,
+         * and it pairs more of them than the bind pose can, because mirrored bones do not always
+         * land at exactly mirrored positions in the bind pose.
+         */
+        void MatchNodeMotionSourcesByNames();
+
         uint16 FindBestMirrorMatchForNode(uint16 nodeIndex, Pose& pose) const;
 
         /**

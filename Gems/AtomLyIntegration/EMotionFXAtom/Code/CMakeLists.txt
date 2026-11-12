@@ -51,6 +51,11 @@ ly_add_source_properties(
             O3DE_GEM_NAME=${gem_name}
             O3DE_GEM_VERSION=${gem_version})
 
+# Clients and servers use the above ${gem_name} module
+ly_create_alias(NAME ${gem_name}.Clients NAMESPACE Gem TARGETS ${gem_name})
+ly_create_alias(NAME ${gem_name}.Servers NAMESPACE Gem TARGETS ${gem_name})
+ly_create_alias(NAME ${gem_name}.Unified NAMESPACE Gem TARGETS ${gem_name})
+
 if(PAL_TRAIT_BUILD_HOST_TOOLS)
     ly_add_target(
         NAME ${gem_name}.Editor GEM_MODULE
@@ -81,4 +86,8 @@ if(PAL_TRAIT_BUILD_HOST_TOOLS)
             PUBLIC
             EMOTIONFXATOM_EDITOR
     )
+
+    # builders and tools use the above ${gem_name}.Editor module
+    ly_create_alias(NAME ${gem_name}.Builders NAMESPACE Gem TARGETS ${gem_name}.Editor)
+    ly_create_alias(NAME ${gem_name}.Tools    NAMESPACE Gem TARGETS ${gem_name}.Editor)
 endif()

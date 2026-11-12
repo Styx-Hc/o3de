@@ -21,5 +21,6 @@
     "documentation_url": "https://www.o3de.org/docs/user-guide/gems/reference/assets/scene-processing/",
     "dependencies": [
         "SceneProcessing"
-    ]
+    ],
+    "provided_unique_service": "SceneImporter"
 }

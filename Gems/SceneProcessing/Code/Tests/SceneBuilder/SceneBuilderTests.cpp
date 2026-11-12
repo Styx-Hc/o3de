@@ -10,6 +10,7 @@
 #include <AzCore/IO/FileIO.h>
 #include <AzCore/IO/Path/Path.h>
 #include <AzCore/Serialization/Json/JsonSerializationSettings.h>
+#include <AzCore/Settings/SettingsRegistry.h>
 #include <AzCore/Settings/SettingsRegistryMergeUtils.h>
 #include <AzCore/UnitTest/TestTypes.h>
 #include <AzCore/UnitTest/Mocks/MockFileIOBase.h>
@@ -119,6 +120,36 @@ TEST_F(SceneBuilderTests, SceneBuilderWorker_ExportProductDependencies_NoDepende
 {
     SceneAPI::Events::ExportProduct exportProduct("testExportFile", AZ::Uuid::CreateRandom(), AZ::Data::AssetType::CreateNull(), u8(0), AZStd::nullopt);
     TestSuccessCaseNoDependencies(exportProduct);
+}
+
+TEST_F(SceneBuilderTests, SceneBuilderWorker_FingerprintIncludesGlobalImportSettings)
+{
+    AZ::SettingsRegistryInterface* settingsRegistry = AZ::SettingsRegistry::Get();
+    ASSERT_NE(settingsRegistry, nullptr);
+
+    constexpr const char* extractEmbeddedTexturesKey =
+        "/O3DE/Preferences/SceneAPI/ImportSettings/ExtractEmbeddedTextures";
+    bool previousValue = false;
+    const bool hadPreviousValue = settingsRegistry->Get(previousValue, extractEmbeddedTexturesKey);
+
+    settingsRegistry->Set(extractEmbeddedTexturesKey, false);
+    SceneBuilderWorker withoutEmbeddedTextures;
+    const AZStd::string fingerprintWithoutEmbeddedTextures = withoutEmbeddedTextures.GetFingerprint();
+
+    settingsRegistry->Set(extractEmbeddedTexturesKey, true);
+    SceneBuilderWorker withEmbeddedTextures;
+    const AZStd::string fingerprintWithEmbeddedTextures = withEmbeddedTextures.GetFingerprint();
+
+    if (hadPreviousValue)
+    {
+        settingsRegistry->Set(extractEmbeddedTexturesKey, previousValue);
+    }
+    else
+    {
+        settingsRegistry->Remove(extractEmbeddedTexturesKey);
+    }
+
+    EXPECT_NE(fingerprintWithoutEmbeddedTextures, fingerprintWithEmbeddedTextures);
 }
 
 TEST_F(SceneBuilderTests, SceneBuilderWorker_ExportProductDependencies_PathDependencyOnSourceAsset)

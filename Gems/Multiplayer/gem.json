@@ -26,6 +26,7 @@
         "PhysX",
         "CertificateManager",
         "Atom_Feature_Common",
+        "EMotionFX",
         "ImGui"
     ]
 }

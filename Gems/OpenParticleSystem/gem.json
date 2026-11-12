@@ -17,5 +17,8 @@
     ],
     "icon_path": "preview.png",
     "requirements": "",
-    "documentation_url": ""
+    "documentation_url": "",
+    "dependencies": [
+        "EMotionFX"
+    ]
 }

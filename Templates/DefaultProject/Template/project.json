@@ -28,6 +28,7 @@
         "DiffuseProbeGrid",
         "EditorPythonBindings",
         "EMotionFX",
+        "EMotionFX_Atom",
         "GameState",
         "ImGui",
         "LandscapeCanvas",

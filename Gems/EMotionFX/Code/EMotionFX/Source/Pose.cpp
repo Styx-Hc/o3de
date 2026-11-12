@@ -1398,35 +1398,68 @@ namespace EMotionFX
         AZ_Assert(m_actorInstance, "Mirroring is only possible in combination with an actor instance.");
 
         const Actor* actor = m_actorInstance->GetActor();
-        const TransformData* transformData = m_actorInstance->GetTransformData();
-        const Pose* bindPose = transformData->GetBindPose();
+        const Skeleton* skeleton = actor->GetSkeleton();
         const AZStd::vector<size_t>& jointLinks = motionLinkData->GetJointDataLinks();
+        const AZ::Vector3 mirrorPlaneNormal(1.0f, 0.0f, 0.0f);
 
-        AnimGraphPose* tempPose = GetEMotionFX().GetThreadData(m_actorInstance->GetThreadIndex())->GetPosePool().RequestPose(m_actorInstance);
-        Pose& unmirroredPose = tempPose->GetPose();
-        unmirroredPose = *this;
+        // The motion samplers write local space transforms without invalidating the cached
+        // model space ones, so refresh them before reading and again after writing, which also
+        // leaves the pose consistent for everything that reads model space transforms after us.
+        ForceUpdateFullModelSpacePose();
 
-        const size_t numNodes = m_actorInstance->GetNumEnabledNodes();
-        for (size_t i = 0; i < numNodes; ++i)
+        // Mirror in model space: every node takes the mirrored model space transform of its
+        // mirror partner. Mirroring the delta between the bind pose and the sampled pose in the
+        // local space of the node instead is only correct when the local joint frames of a
+        // mirrored pair are aligned with the mirror plane, which imported rigs rarely are; the
+        // mirrored joints then land in arbitrary directions, and a rig whose bind pose carries a
+        // different scale than its animation (which the skinning matrices absorb) makes it worse.
+        const size_t nodeCount = actor->GetNumNodes();
+        AZStd::vector<Transform> currentModelSpace(nodeCount);
+        AZStd::vector<Transform> mirroredModelSpace(nodeCount);
+        AZStd::vector<bool> mirrored(nodeCount, false);
+
+        for (size_t nodeNumber = 0; nodeNumber < nodeCount; ++nodeNumber)
+        {
+            currentModelSpace[nodeNumber] = GetModelSpaceTransform(nodeNumber);
+        }
+
+        const size_t numEnabledNodes = m_actorInstance->GetNumEnabledNodes();
+        for (size_t i = 0; i < numEnabledNodes; ++i)
         {
             const size_t nodeNumber = m_actorInstance->GetEnabledNode(i);
-            const size_t jointDataIndex = jointLinks[nodeNumber];
-            if (jointDataIndex == InvalidIndex)
+            if (jointLinks[nodeNumber] == InvalidIndex)
+            {
+                continue;
+            }
+            const uint16 sourceNode = actor->GetNodeMirrorInfo(nodeNumber).m_sourceNode;
+            const size_t partner = (sourceNode < nodeCount) ? sourceNode : nodeNumber;
+            mirroredModelSpace[nodeNumber] = currentModelSpace[partner].Mirrored(mirrorPlaneNormal);
+            mirrored[nodeNumber] = true;
+        }
+
+        // Skeleton nodes are stored parents before children, so a mirrored node either has a
+        // mirrored parent, whose transform is written before its own, or a parent that this
+        // motion does not drive and which therefore keeps its sampled transform.
+        for (size_t i = 0; i < numEnabledNodes; ++i)
+        {
+            const size_t nodeNumber = m_actorInstance->GetEnabledNode(i);
+            if (!mirrored[nodeNumber])
             {
                 continue;
             }
 
-            const Actor::NodeMirrorInfo& mirrorInfo = actor->GetNodeMirrorInfo(nodeNumber);
+            const size_t parentIndex = skeleton->GetNode(nodeNumber)->GetParentIndex();
+            if (parentIndex == InvalidIndex)
+            {
+                SetLocalSpaceTransformDirect(nodeNumber, mirroredModelSpace[nodeNumber]);
+                continue;
+            }
 
-            Transform mirrored = bindPose->GetLocalSpaceTransform(nodeNumber);
-            AZ::Vector3 mirrorAxis = AZ::Vector3::CreateZero();
-            mirrorAxis.SetElement(mirrorInfo.m_axis, 1.0f);
-            mirrored.ApplyDeltaMirrored(bindPose->GetLocalSpaceTransform(mirrorInfo.m_sourceNode), unmirroredPose.GetLocalSpaceTransform(mirrorInfo.m_sourceNode), mirrorAxis, mirrorInfo.m_flags);
-
-            SetLocalSpaceTransformDirect(nodeNumber, mirrored);
+            const Transform& parentTransform = mirrored[parentIndex] ? mirroredModelSpace[parentIndex] : currentModelSpace[parentIndex];
+            SetLocalSpaceTransformDirect(nodeNumber, mirroredModelSpace[nodeNumber].Multiplied(parentTransform.Inversed()));
         }
 
-        GetEMotionFX().GetThreadData(m_actorInstance->GetThreadIndex())->GetPosePool().FreePose(tempPose);
+        ForceUpdateFullModelSpacePose();
     }
 
     void Pose::DebugDraw(AzFramework::DebugDisplayRequests& debugDisplay, const AZ::Color& color, bool drawPoseDatas) const

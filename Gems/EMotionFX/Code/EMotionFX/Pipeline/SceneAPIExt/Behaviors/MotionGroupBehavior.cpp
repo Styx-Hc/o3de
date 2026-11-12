@@ -15,6 +15,10 @@
 #include <SceneAPI/SceneData/Rules/CoordinateSystemRule.h>
 #include <AzCore/Memory/SystemAllocator.h>
 #include <AzCore/std/smart_ptr/make_shared.h>
+#include <SceneAPI/SceneCore/Containers/Views/SceneGraphChildIterator.h>
+#include <SceneAPI/SceneCore/DataTypes/GraphData/IBoneData.h>
+#include <AzCore/std/algorithm.h>
+#include <AzCore/std/sort.h>
 
 #include <SceneAPIExt/Behaviors/MotionGroupBehavior.h>
 #include <SceneAPIExt/Groups/MotionGroup.h>
@@ -168,6 +172,37 @@ namespace EMotionFX
                     return AZ::SceneAPI::Events::ProcessingResult::Ignored;
                 }
 
+                // Importers that support multiple animation clips per file (e.g. the UniversalSceneImporter)
+                // create one animation data node per clip and bone, named after the clip. When every bone
+                // of the skeleton is covered by the same set of two or more animation names, create one
+                // motion group per clip so that each clip is exported as its own motion file. Importers
+                // that only support a single animation per file (e.g. AssImp) use one constant animation
+                // node name and keep the single default motion group below.
+                const AZStd::vector<AZStd::string> animationSetNames = CollectUniformAnimationSetNames(scene);
+                if (animationSetNames.size() >= 2)
+                {
+                    for (const AZStd::string& animationName : animationSetNames)
+                    {
+                        AZStd::shared_ptr<Group::MotionGroup> group = AZStd::make_shared<Group::MotionGroup>();
+
+                        // Stable ids so that re-imports recreate the same groups. The animation name is
+                        // part of the hash because there are multiple motion groups in this scene.
+                        group->OverrideId(AZ::SceneAPI::DataTypes::Utilities::CreateStableUuid(scene, Group::MotionGroup::TYPEINFO_Uuid(), animationName));
+
+                        AZ::SceneAPI::Events::ManifestMetaInfoBus::Broadcast(
+                            &AZ::SceneAPI::Events::ManifestMetaInfoBus::Events::InitializeObject, scene, *group);
+
+                        // Overwrite the scene-name-based name assigned by InitializeObject with the clip
+                        // name; the exported motion file is named after the clip.
+                        group->SetName(AZ::SceneAPI::DataTypes::Utilities::CreateUniqueName<Group::IMotionGroup>(
+                            SanitizeMotionName(animationName), scene.GetManifest()));
+                        group->SetSelectedAnimationName(animationName);
+
+                        scene.GetManifest().AddEntry(AZStd::move(group));
+                    }
+                    return AZ::SceneAPI::Events::ProcessingResult::Success;
+                }
+
                 // There are animations but no motion group, so add a default motion group to the manifest.
                 AZStd::shared_ptr<Group::MotionGroup> group = AZStd::make_shared<Group::MotionGroup>();
 
@@ -180,6 +215,89 @@ namespace EMotionFX
                 scene.GetManifest().AddEntry(AZStd::move(group));
 
                 return AZ::SceneAPI::Events::ProcessingResult::Success;
+            }
+
+            AZStd::vector<AZStd::string> MotionGroupBehavior::CollectUniformAnimationSetNames(const AZ::SceneAPI::Containers::Scene& scene)
+            {
+                const AZ::SceneAPI::Containers::SceneGraph& graph = scene.GetGraph();
+                auto nameStorage = graph.GetNameStorage();
+                auto contentStorage = graph.GetContentStorage();
+                auto nameContentView = AZ::SceneAPI::Containers::Views::MakePairView(nameStorage, contentStorage);
+                auto graphDownwardsView = AZ::SceneAPI::Containers::Views::MakeSceneGraphDownwardsView<AZ::SceneAPI::Containers::Views::BreadthFirst>(
+                    graph, graph.GetRoot(), nameContentView.begin(), true);
+
+                AZStd::vector<AZStd::string> commonNames;
+                bool firstBone = true;
+                size_t boneCount = 0;
+                for (auto it = graphDownwardsView.begin(); it != graphDownwardsView.end(); ++it)
+                {
+                    if (!it->second)
+                    {
+                        continue;
+                    }
+
+                    const bool isBone = it->second->RTTI_IsTypeOf(AZ::SceneData::GraphData::RootBoneData::TYPEINFO_Uuid()) ||
+                                        it->second->RTTI_IsTypeOf(AZ::SceneAPI::DataTypes::IBoneData::TYPEINFO_Uuid());
+                    if (!isBone)
+                    {
+                        continue;
+                    }
+                    ++boneCount;
+
+                    // Collect the names of the animation data endpoint nodes hanging on this bone.
+                    // Blend shape animations are excluded, they are not per-clip bone tracks.
+                    AZStd::vector<AZStd::string> boneNames;
+                    auto childView = AZ::SceneAPI::Containers::Views::MakeSceneGraphChildView<AZ::SceneAPI::Containers::Views::AcceptEndPointsOnly>(
+                        graph, graph.ConvertToNodeIndex(it.GetHierarchyIterator()), nameContentView.begin(), true);
+                    for (auto childIt = childView.begin(); childIt != childView.end(); ++childIt)
+                    {
+                        if (!childIt->second ||
+                            !childIt->second->RTTI_IsTypeOf(AZ::SceneAPI::DataTypes::IAnimationData::TYPEINFO_Uuid()) ||
+                            childIt->second->RTTI_IsTypeOf(AZ::SceneAPI::DataTypes::IBlendShapeAnimationData::TYPEINFO_Uuid()))
+                        {
+                            continue;
+                        }
+                        boneNames.emplace_back(childIt->first.GetName());
+                    }
+
+                    AZStd::sort(boneNames.begin(), boneNames.end());
+                    boneNames.erase(AZStd::unique(boneNames.begin(), boneNames.end()), boneNames.end());
+
+                    if (firstBone)
+                    {
+                        commonNames = AZStd::move(boneNames);
+                        firstBone = false;
+                    }
+                    else if (commonNames != boneNames)
+                    {
+                        // The bones are not uniformly covered by the same animation sets, treat the scene as
+                        // single-motion to avoid exporting partial motions.
+                        return {};
+                    }
+                }
+
+                if (boneCount == 0 || commonNames.size() < 2)
+                {
+                    return {};
+                }
+                return commonNames;
+            }
+
+            AZStd::string MotionGroupBehavior::SanitizeMotionName(const AZStd::string& name)
+            {
+                AZStd::string result = name;
+                for (char& c : result)
+                {
+                    if (c < 32 || c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
+                    {
+                        c = '_';
+                    }
+                }
+                if (result.empty() || result == "." || result == "..")
+                {
+                    result = "motion";
+                }
+                return result;
             }
 
             AZ::SceneAPI::Events::ProcessingResult MotionGroupBehavior::UpdateMotionGroupBehaviors(AZ::SceneAPI::Containers::Scene& scene) const
